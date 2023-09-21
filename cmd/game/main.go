@@ -7,16 +7,19 @@ import (
 	"time"
 )
 
+// Card holds the Suit and the value of a card
 type Card struct {
 	Suit string
 	Type string
 }
 
+// Player holds the Current Hand and the color of the player
 type Player struct {
 	Hand  []Card
 	Color string
 }
 
+// Game holds the Deck DiscardPile, # of Players, and the MaxHandSize for the given players
 type Game struct {
 	Deck        []Card
 	DiscardPile []Card
@@ -38,18 +41,14 @@ func main() {
 	game.DebugDeck()
 	game.ShuffleDeck()
 	game.DebugDeck()
-	game.Deal(6)
+	game.Deal(10)
 	game.PlayCard(game.Players[0], 4)
-	fmt.Println("discard pile length", len(game.DiscardPile))
-	fmt.Println("deck size", len(game.Deck))
-	game.PlayCard(game.Players[1], 2)
-	fmt.Println("discard pile length", len(game.DiscardPile))
-	fmt.Println("deck size", len(game.Deck))
-	game.PlayCard(game.Players[2], 3)
+	fmt.Printf("%#v\n", game.Deck)
 
-	fmt.Println("discard pile length", len(game.DiscardPile))
-	fmt.Println("deck size", len(game.Deck))
-
+	fmt.Println("--------------")
+	fmt.Printf("%#v\n", game.DiscardPile)
+	fmt.Println("--------------")
+	fmt.Printf("%#v\n", game.Players)
 }
 
 func NewGame(players []Player) Game {
@@ -102,7 +101,8 @@ func (g Game) DebugDeck() {
 // Deal a card to every player
 func (g *Game) Deal(n int) {
 	for i := 0; i < n*len(g.Players); i++ {
-		g.Players[i%len(g.Players)].Hand = append(g.Players[i%len(g.Players)].Hand, g.Deck[i])
+		g.Players[i%len(g.Players)].Hand =
+			append(g.Players[i%len(g.Players)].Hand, g.Deck[i])
 	}
 
 	// remove the cards dealt from the deck
@@ -111,7 +111,7 @@ func (g *Game) Deal(n int) {
 
 // PlayCard handles what happens when a card is played
 // it takes the payer and an index and updates
-func (g *Game) PlayCard(player Player, index int) Card {
+func (g *Game) PlayCard(player Player, index int) {
 	var cardPlayed Card
 	var newHand []Card
 
@@ -121,7 +121,6 @@ func (g *Game) PlayCard(player Player, index int) Card {
 		} else {
 			newHand = append(newHand, player.Hand[i])
 		}
-
 	}
 
 	// draw a new card from the top
@@ -140,6 +139,4 @@ func (g *Game) PlayCard(player Player, index int) Card {
 	// update player hand
 	player.Hand = newHand
 
-
-	return cardPlayed
 }

@@ -103,7 +103,6 @@ func (g Game) DebugDeck() {
 func (g *Game) Deal(n int) {
 	for i := 0; i < n*len(g.Players); i++ {
 		g.Players[i%len(g.Players)].Hand = append(g.Players[i%len(g.Players)].Hand, g.Deck[i])
-		fmt.Println(g.Deck[i], i)
 	}
 
 	// remove the cards dealt from the deck
@@ -128,7 +127,7 @@ func (g *Game) PlayCard(player Player, index int) Card {
 	// draw a new card from the top
 	drawnCard := g.Deck[len(g.Deck)-1]
 
-	// updated deck slice
+	// create a copy of the deck to reflect the recently drawn card
 	updatedDeck := g.Deck[:len(g.Deck)-1]
 
 	// add drawnCard to the Players Hand

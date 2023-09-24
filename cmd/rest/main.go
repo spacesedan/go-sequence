@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"log/slog"
 	"math/rand"
@@ -14,13 +15,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/spacesedan/go-sequence/internal/rest"
-	"github.com/spacesedan/go-sequence/internal/services/game"
+	"github.com/spacesedan/go-sequence/internal/services"
 	"github.com/unrolled/render"
 )
 
 func init() {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 }
+
 
 func main() {
 
@@ -37,7 +39,7 @@ func main() {
 
 type ServerConfig struct {
 	address string
-	render *render.Render
+	render  *render.Render
 }
 
 func run() (<-chan error, error) {
@@ -53,7 +55,7 @@ func run() (<-chan error, error) {
 
 	serverConfig := ServerConfig{
 		address: ":42069",
-		render: render.New(),
+		render:  render.New(),
 	}
 
 	srv, _ := newServer(serverConfig)
@@ -93,8 +95,7 @@ func run() (<-chan error, error) {
 func newServer(sc ServerConfig) (*http.Server, error) {
 	router := chi.NewRouter()
 
-
-	game := game.NewGame()
+	game := services.NewGame(services.GameOptions{})
 	rest.NewGameHandler(game).Register(router)
 
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {

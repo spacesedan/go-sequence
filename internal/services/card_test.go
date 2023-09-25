@@ -93,10 +93,9 @@ func TestResettingDeck(t *testing.T) {
 	deck := cs.getDeck()
 
 	for i := 0; i < len(deck)+1; i++ {
-		card :=cs.dealOneCard()
+		card := cs.dealOneCard()
 		cs.AddToDiscardPile(card)
 	}
-
 
 	if len(cs.getDeck()) != 103 {
 		t.Error("Expected deck size to be 103 after dealing all the cards in the deck")
@@ -108,15 +107,15 @@ func TestDealCards(t *testing.T) {
 	playerOneId := uuid.New()
 	playerTwoId := uuid.New()
 	players := Players{
-		playerOneId : {
-			Name: "Player 1",
+		playerOneId: {
+			Name:  "Player 1",
 			Color: "Blue",
-			ID: playerOneId,
+			ID:    playerOneId,
 		},
-		playerTwoId : {
-			Name: "Player 2",
+		playerTwoId: {
+			Name:  "Player 2",
 			Color: "Red",
-			ID: playerTwoId,
+			ID:    playerTwoId,
 		},
 	}
 
@@ -132,19 +131,21 @@ func TestDealCards(t *testing.T) {
 	playerOne := players[playerOneId]
 	playerTwo := players[playerTwoId]
 
+	// Check to see if the player hands equal to the set deal amout
 	if len(playerOne.Hand) != handSize {
 		t.Errorf("Expected player hand size to be equal to the set hand size; but got %v", len(playerOne.Hand))
 	}
 
+	// Check to see if players get the same size hands
 	if len(playerOne.Hand) != len(playerTwo.Hand) {
 		t.Error("Expected player hands to be the same size")
 	}
 
 	deckLengthAfterDealing := len(cs.getDeck())
 
+	// Check to see if the size of the deck changed after dealing cards to players
 	if deckLengthAfterDealing == deckLengthBeforeDealing {
 		t.Errorf("Expected the deck size to reflect the number of cards drawn; but go a size of %v", deckLengthAfterDealing)
 	}
 
 }
-

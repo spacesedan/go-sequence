@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"log/slog"
 	"math/rand"
@@ -23,8 +22,13 @@ func init() {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
-
 func main() {
+	bs := services.NewBoardService()
+	bs.NewBoard()
+}
+
+
+func main_() {
 
 	errC, err := run()
 	if err != nil {

@@ -34,12 +34,10 @@ type CardService interface {
 type cardService struct {
 	Deck        Deck
 	DiscardPile DiscardPile
-	Board Board
 }
 
-func NewCardService(b Board) CardService {
+func NewCardService() CardService {
 	return &cardService{
-		Board: b,
 	}
 }
 

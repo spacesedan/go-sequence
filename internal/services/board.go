@@ -12,7 +12,7 @@ import (
 const boardCellsJSONPath = "data/board_cells.json"
 
 type BoardService interface {
-	NewBoard()
+	NewBoard(fn string)
 	GetBoard() Board
 	AddPlayerChip(p Player, c Card, pos Position)
 	RemovePlayerChip(pos Position)
@@ -44,27 +44,8 @@ func NewBoardService() BoardService {
 }
 
 // NewBoard creates a new game board
-func (b *boardService) NewBoard() {
-	// cells is going to hold the cells array loaded from file
-	var cells BoardCells
-
-	// openn the cells file
-	file, err := os.Open(boardCellsJSONPath)
-	if err != nil {
-		log.Println(err.Error())
-	}
-
-	// close the file once the function is executed
-	defer file.Close()
-
-	// create a reading from teh file
-	r := bufio.NewReader(file)
-
-	// decode the loaded file into a usable struct
-	err = json.NewDecoder(r).Decode(&cells)
-	if err != nil {
-		log.Println(err.Error())
-	}
+func (b *boardService) NewBoard(fileName string) {
+	cells := boardCellsFromFile(fileName)
 
 	for _, cell := range cells {
 
@@ -116,7 +97,6 @@ func (b boardService) AddPlayerChip(player Player, card Card, pos Position) {
 
 	cell.ChipColor = player.Color
 	cell.ChipPlaced = true
-
 }
 
 func (b boardService) RemovePlayerChip(pos Position) {
@@ -135,10 +115,35 @@ func (b boardService) RemovePlayerChip(pos Position) {
 			cell.ChipPlaced = false
 			// remove the teams chip color from the cell
 			cell.ChipColor = ""
-
 		}
 	}
 
+}
+
+// boardCellsFromFile returns board cells from a file
+func boardCellsFromFile(fileName string) BoardCells {
+	// cells is going to hold the cells array loaded from file
+	var cells BoardCells
+
+	// openn the cells file
+	file, err := os.Open(fileName)
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	// close the file once the function is executed
+	defer file.Close()
+
+	// create a reading from teh file
+	r := bufio.NewReader(file)
+
+	// decode the loaded file into a usable struct
+	err = json.NewDecoder(r).Decode(&cells)
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	return cells
 }
 
 // newBoardCell creates a new pointer to a BoardCell

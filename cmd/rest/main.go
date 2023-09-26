@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"log/slog"
 	"math/rand"
@@ -23,10 +24,8 @@ func init() {
 }
 
 func main() {
-	bs := services.NewBoardService()
-	bs.NewBoard()
-}
 
+}
 
 func main_() {
 

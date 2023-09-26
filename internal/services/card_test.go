@@ -16,7 +16,8 @@ func TestNewCardService(t *testing.T) {
 // TestNewDeck check to see that a new deck is created with 104 cards
 func TestNewDeck(t *testing.T) {
 	cardService := NewCardService()
-	cardService.NewDeck()
+	board := NewBoardService().NewBoard()
+	cardService.NewDeck(&board)
 	deck := cardService.getDeck()
 
 	if len(deck) != 104 {
@@ -27,7 +28,8 @@ func TestNewDeck(t *testing.T) {
 // TestShuffleDeck check to make sure deck has been shuffled
 func TestShuffleDeck(t *testing.T) {
 	cardService := NewCardService()
-	cardService.NewDeck()
+	board := NewBoardService().NewBoard()
+	cardService.NewDeck(&board)
 	deck := cardService.getDeck()
 
 	cardOne := deck[0]
@@ -40,7 +42,8 @@ func TestShuffleDeck(t *testing.T) {
 	// Keep in mind that there is a chance for this check to pass even though
 	// the deck has been shuffled
 	// there is a 1 in 10816 chance that this could happen
-	if cardOne == deck[0] && cardTwo == deck[1] {
+	if cardOne.Suit == deck[0].Suit && cardOne.Type == deck[0].Type ||
+		cardTwo.Suit == deck[1].Suit || cardTwo.Type == deck[1].Type {
 		t.Errorf("Expected deck to be shuffled")
 	}
 }
@@ -48,7 +51,8 @@ func TestShuffleDeck(t *testing.T) {
 // TestDealOneCard dealing a card should reduce the size of teh deck by one
 func TestDealOneCard(t *testing.T) {
 	cs := NewCardService()
-	cs.NewDeck()
+	board := NewBoardService().NewBoard()
+	cs.NewDeck(&board)
 
 	deckLengthBefore := len(cs.getDeck())
 
@@ -69,9 +73,10 @@ func TestDealOneCard(t *testing.T) {
 // TestAddingToDiscardPile once a card gets played it is added to the discard pile
 func TestAddingToDiscardPile(t *testing.T) {
 
+	board := NewBoardService().NewBoard()
 	cs := NewCardService()
 
-	cs.NewDeck()
+	cs.NewDeck(&board)
 
 	card := cs.dealOneCard()
 	cs.AddToDiscardPile(card)
@@ -87,8 +92,9 @@ func TestAddingToDiscardPile(t *testing.T) {
 // discard pile increases, once the deck is empty the discard and the deck switch
 func TestResettingDeck(t *testing.T) {
 	cs := NewCardService()
+	board := NewBoardService().NewBoard()
 
-	cs.NewDeck()
+	cs.NewDeck(&board)
 
 	deck := cs.getDeck()
 
@@ -120,7 +126,9 @@ func TestDealCards(t *testing.T) {
 	}
 
 	cs := NewCardService()
-	cs.NewDeck()
+
+	board := NewBoardService().NewBoard()
+	cs.NewDeck(&board)
 
 	deckLengthBeforeDealing := len(cs.getDeck())
 

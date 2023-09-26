@@ -6,8 +6,8 @@ import (
 
 // Card holds the Suit and the value of a card
 type Card struct {
-	Suit string
-	Type string
+	Suit          string
+	Type          string
 }
 
 // Slice of cards where plays get dealt cards and draw from
@@ -34,10 +34,13 @@ type CardService interface {
 type cardService struct {
 	Deck        Deck
 	DiscardPile DiscardPile
+	Board Board
 }
 
-func NewCardService() CardService {
-	return &cardService{}
+func NewCardService(b Board) CardService {
+	return &cardService{
+		Board: b,
+	}
 }
 
 // NewDeck creates a new deck
@@ -53,12 +56,14 @@ func (c *cardService) NewDeck() {
 	for i := 0; i < len(types); i++ {
 		for n := 0; n < len(suits); n++ {
 			card := Card{
-				Type: types[i],
-				Suit: suits[n],
+				Type:          types[i],
+				Suit:          suits[n],
 			}
+
 			// add two copies of every card to the deck
 			deck = append(deck, card)
 			deck = append(deck, card)
+
 		}
 	}
 

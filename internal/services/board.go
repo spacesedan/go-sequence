@@ -3,19 +3,21 @@ package services
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 )
 
+// path to file which contains board game cell information
 const boardCellsJSONPath = "data/board_cells.json"
 
 type BoardService interface {
-	NewBoard(fn string)
+	NewBoard(fn string) error
 	GetBoard() Board
-	AddPlayerChip(p Player, c Card, pos Position)
-	RemovePlayerChip(pos Position)
+	AddPlayerChip(p Player, c Card, pos Position) error
+	RemovePlayerChip(pos Position) error
 }
 
 type boardService struct {
@@ -44,8 +46,11 @@ func NewBoardService() BoardService {
 }
 
 // NewBoard creates a new game board
-func (b *boardService) NewBoard(fileName string) {
-	cells := boardCellsFromFile(fileName)
+func (b *boardService) NewBoard(fileName string) error {
+	cells, err := boardCellsFromFile(fileName)
+	if err != nil {
+		return WrapErrorf(err, ErrorCodeNotFound, "services.NewBoard")
+	}
 
 	for _, cell := range cells {
 
@@ -72,18 +77,23 @@ func (b *boardService) NewBoard(fileName string) {
 
 	}
 
+	return nil
+
 }
 
+// GetBoard returns the game board
 func (b boardService) GetBoard() Board {
 	return b.Board
 }
 
+// Position
 type Position struct {
 	X int
 	Y int
 }
 
-func (b boardService) AddPlayerChip(player Player, card Card, pos Position) {
+// AddPlayerChip adds a chip to a cell on the board using a card and a cell position
+func (b boardService) AddPlayerChip(player Player, card Card, pos Position) error {
 	cellName := fmt.Sprintf("%s_%s_%d_%d", card.Suit, card.Type, pos.X, pos.Y)
 
 	cell := b.Board[cellName]
@@ -91,15 +101,19 @@ func (b boardService) AddPlayerChip(player Player, card Card, pos Position) {
 	// check to see if the cell is already occupied
 	if cell.ChipPlaced {
 		// add more information later
-		log.Println("Cell taken")
-		return
+		return WrapErrorf(errors.New("Illegal Move, cell is taken"),
+			ErrorCodeIllegalMove,
+			"boardService.AddPlayerChip")
 	}
 
 	cell.ChipColor = player.Color
 	cell.ChipPlaced = true
+
+	return nil
 }
 
-func (b boardService) RemovePlayerChip(pos Position) {
+// RemovePlayerChip removes chip and color set on a cell
+func (b boardService) RemovePlayerChip(pos Position) error {
 	// create a substring to help find the board
 	subStr := fmt.Sprintf("_%d_%d", pos.X, pos.Y)
 
@@ -108,7 +122,10 @@ func (b boardService) RemovePlayerChip(pos Position) {
 		if strings.Contains(name, subStr) {
 			// if the cell does not have a chip set ignore this move and try again
 			if !cell.ChipPlaced {
-				log.Println("no chip to remove, choose another position")
+				return WrapErrorf(errors.New("Illegal Move: cell not taken"),
+					ErrorCodeIllegalMove,
+					"boardService.RemovePlayerChip")
+
 			}
 
 			// remove the placed chip
@@ -118,17 +135,19 @@ func (b boardService) RemovePlayerChip(pos Position) {
 		}
 	}
 
+	return nil
+
 }
 
 // boardCellsFromFile returns board cells from a file
-func boardCellsFromFile(fileName string) BoardCells {
+func boardCellsFromFile(fileName string) (BoardCells, error) {
 	// cells is going to hold the cells array loaded from file
 	var cells BoardCells
 
 	// openn the cells file
 	file, err := os.Open(fileName)
 	if err != nil {
-		log.Println(err.Error())
+		return BoardCells{}, err
 	}
 
 	// close the file once the function is executed
@@ -141,9 +160,10 @@ func boardCellsFromFile(fileName string) BoardCells {
 	err = json.NewDecoder(r).Decode(&cells)
 	if err != nil {
 		log.Println(err.Error())
+		return BoardCells{}, WrapErrorf(err, ErrorCodeUnknown, "json.NewDecoder")
 	}
 
-	return cells
+	return cells, nil
 }
 
 // newBoardCell creates a new pointer to a BoardCell

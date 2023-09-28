@@ -158,11 +158,11 @@ func TestAddPlayerChipIllegalMove(t *testing.T) {
 	}
 
 	// Add a player chip using the stubbed data
-	err := bs.AddPlayerChip(player, card, pos)
+	_, err := bs.AddPlayerChip(player, card, pos)
 	if err != nil {
 		t.Error("Expected cell to be updated with player information")
 	}
-	err = bs.AddPlayerChip(player, card, pos)
+	_, err = bs.AddPlayerChip(player, card, pos)
 	if err == nil {
 		t.Errorf("Expected an error, chip has already been taken")
 	}
@@ -210,7 +210,7 @@ func TestRemovePlayerChip(t *testing.T) {
 
 }
 
-func TestRemovePlayerChipIllegalMove(t *testing.T) {
+func TestRemovePlayerChipCellNotTaken(t *testing.T) {
 	bs := NewBoardService()
 	bs.NewBoard(TestPath)
 
@@ -219,9 +219,40 @@ func TestRemovePlayerChipIllegalMove(t *testing.T) {
 		Y: 0,
 	}
 
-	err := bs.RemovePlayerChip(pos)
+	_, err := bs.RemovePlayerChip(pos)
 	if err == nil {
 		t.Error("Expected an error, there is no chip on this cell")
 	}
 
+}
+
+func TestRemovePlayerChipCellLocked(t *testing.T) {
+	bs := NewBoardService()
+	bs.NewBoard(TestPath)
+
+	color := "green"
+
+	player := Player{
+		Name:  "Player 1",
+		Color: color,
+	}
+
+	card := Card{
+		Suit: "Spade",
+		Type: "Four",
+	}
+
+	pos := Position{
+		X: 6,
+		Y: 0,
+	}
+
+	cell, _ := bs.AddPlayerChip(player, card, pos)
+
+	cell.CellLocked = true
+
+	_, err := bs.RemovePlayerChip(pos)
+	if err == nil {
+		t.Error("Expected error while removing a locked cell, but got none")
+	}
 }

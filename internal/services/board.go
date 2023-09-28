@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 )
@@ -16,8 +15,8 @@ const boardCellsJSONPath = "data/board_cells.json"
 type BoardService interface {
 	NewBoard(fn string) error
 	GetBoard() Board
-	AddPlayerChip(p Player, c Card, pos Position) error
-	RemovePlayerChip(pos Position) error
+	AddPlayerChip(p Player, c Card, pos Position) (*BoardCell, error)
+	RemovePlayerChip(pos Position) (string, error)
 }
 
 type boardService struct {
@@ -30,6 +29,7 @@ type BoardCell struct {
 	Suit       string `json:"suit"`
 	X          int    `json:"x"`
 	Y          int    `json:"y"`
+	CellLocked bool   `json:"cell_locked"`
 	IsCorner   bool   `json:"is_corner"`
 	ChipPlaced bool   `json:"chip_placed"`
 	ChipColor  string `json:"chip_color"`
@@ -93,7 +93,7 @@ type Position struct {
 }
 
 // AddPlayerChip adds a chip to a cell on the board using a card and a cell position
-func (b boardService) AddPlayerChip(player Player, card Card, pos Position) error {
+func (b boardService) AddPlayerChip(player Player, card Card, pos Position) (*BoardCell, error) {
 	cellName := fmt.Sprintf("%s_%s_%d_%d", card.Suit, card.Type, pos.X, pos.Y)
 
 	cell := b.Board[cellName]
@@ -101,7 +101,7 @@ func (b boardService) AddPlayerChip(player Player, card Card, pos Position) erro
 	// check to see if the cell is already occupied
 	if cell.ChipPlaced {
 		// add more information later
-		return WrapErrorf(errors.New("Illegal Move, cell is taken"),
+		return nil, WrapErrorf(errors.New("Illegal Move, cell is taken"),
 			ErrorCodeIllegalMove,
 			"boardService.AddPlayerChip")
 	}
@@ -109,23 +109,34 @@ func (b boardService) AddPlayerChip(player Player, card Card, pos Position) erro
 	cell.ChipColor = player.Color
 	cell.ChipPlaced = true
 
-	return nil
+	return cell, nil
 }
 
 // RemovePlayerChip removes chip and color set on a cell
-func (b boardService) RemovePlayerChip(pos Position) error {
+func (b boardService) RemovePlayerChip(pos Position) (string, error) {
+	var cellName string
 	// create a substring to help find the board
 	subStr := fmt.Sprintf("_%d_%d", pos.X, pos.Y)
 
 	for name, cell := range b.Board {
 		// find the board to update
 		if strings.Contains(name, subStr) {
+			cellName = name
 			// if the cell does not have a chip set ignore this move and try again
 			if !cell.ChipPlaced {
-				return WrapErrorf(errors.New("Illegal Move: cell not taken"),
+				return "", WrapErrorf(
+					errors.New("Illegal Move: cell not taken"),
 					ErrorCodeIllegalMove,
 					"boardService.RemovePlayerChip")
 
+			}
+
+			if cell.CellLocked {
+				return "", WrapErrorf(
+					errors.New("Illegal Move: cell is a part of a sequence"),
+					ErrorCodeIllegalMove,
+					"boardService.RemovePlayerChip",
+				)
 			}
 
 			// remove the placed chip
@@ -135,7 +146,7 @@ func (b boardService) RemovePlayerChip(pos Position) error {
 		}
 	}
 
-	return nil
+	return cellName, nil
 
 }
 
@@ -147,7 +158,7 @@ func boardCellsFromFile(fileName string) (BoardCells, error) {
 	// openn the cells file
 	file, err := os.Open(fileName)
 	if err != nil {
-		return BoardCells{}, err
+		return BoardCells{}, WrapErrorf(err, ErrorCodeNotFound, "os.Open")
 	}
 
 	// close the file once the function is executed
@@ -159,7 +170,6 @@ func boardCellsFromFile(fileName string) (BoardCells, error) {
 	// decode the loaded file into a usable struct
 	err = json.NewDecoder(r).Decode(&cells)
 	if err != nil {
-		log.Println(err.Error())
 		return BoardCells{}, WrapErrorf(err, ErrorCodeUnknown, "json.NewDecoder")
 	}
 
@@ -174,6 +184,7 @@ func newBoardCell(b BoardCell) *BoardCell {
 		X:          b.X,
 		Y:          b.Y,
 		IsCorner:   b.IsCorner,
+		CellLocked: b.CellLocked,
 		ChipColor:  b.ChipColor,
 		ChipPlaced: b.ChipPlaced,
 	}

@@ -6,8 +6,8 @@ import (
 
 // Card holds the Suit and the value of a card
 type Card struct {
-	Suit          string
-	Type          string
+	Suit string
+	Type string
 }
 
 // Slice of cards where plays get dealt cards and draw from
@@ -22,7 +22,7 @@ type CardService interface {
 	NewDeck()
 	DealCards(p Players, n int)
 	AddToDiscardPile(card Card)
-	DrawCard(p Player, n int)
+	DrawCard(p Player, n int) Card
 
 	// utility functions
 	shuffleDeck()
@@ -37,8 +37,7 @@ type cardService struct {
 }
 
 func NewCardService() CardService {
-	return &cardService{
-	}
+	return &cardService{}
 }
 
 // NewDeck creates a new deck
@@ -54,8 +53,8 @@ func (c *cardService) NewDeck() {
 	for i := 0; i < len(types); i++ {
 		for n := 0; n < len(suits); n++ {
 			card := Card{
-				Type:          types[i],
-				Suit:          suits[n],
+				Type: types[i],
+				Suit: suits[n],
 			}
 
 			// add two copies of every card to the deck
@@ -107,15 +106,17 @@ func (c *cardService) DealCards(players Players, handSize int) {
 			card := c.dealOneCard()
 			player.Hand = append(player.Hand, card)
 		}
-	}
+}
 }
 
 // DrawCard Draw a card from the deck and add it to the players hand
-func (c *cardService) DrawCard(player Player, maxHandSize int) {
+func (c *cardService) DrawCard(player Player, maxHandSize int) Card {
 	if len(player.Hand) < maxHandSize {
 		card := c.dealOneCard()
-		player.Hand = append(player.Hand, card)
+		return card
 	}
+
+	return Card{}
 }
 
 // AddToDiscardPile adds card to the discard pile

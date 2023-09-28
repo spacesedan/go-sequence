@@ -18,9 +18,10 @@ type Player struct {
 type Players map[uuid.UUID]*Player
 
 type PlayerService interface {
-	AddPlayer(*Player)
+	AddPlayer(*Player) error
 	RemovePlayer(uuid.UUID) error
 	GetPlayer(uuid.UUID) (*Player, error)
+	GetPlayers() Players
 
 	PlayerPlayCardFromHand(*Player, int) (Card, error)
 	PlayerAddCardTooHand(*Player, Card)
@@ -38,9 +39,17 @@ func NewPlayerService() PlayerService {
 }
 
 // AddPlayer add a player to the player list
-func (p *playerService) AddPlayer(player *Player) {
-    player.CellsTaken = make(map[string]string)
+func (p *playerService) AddPlayer(player *Player) error {
+	if _, ok := p.Players[player.ID]; ok {
+		return WrapErrorf(errors.New("Error: Player already exists"),
+			ErrorCodeInvalidArgument,
+			"playerService.AddPlayer",
+		)
+	}
+	player.CellsTaken = make(map[string]string)
 	p.Players[player.ID] = player
+
+	return nil
 }
 
 // RemovePlayer removes a player from the player list
@@ -55,6 +64,10 @@ func (p *playerService) RemovePlayer(playerId uuid.UUID) error {
 	delete(p.Players, playerId)
 
 	return nil
+}
+
+func (p *playerService) GetPlayers() Players {
+	return p.Players
 }
 
 // Get a player form the player list using their id
@@ -81,24 +94,23 @@ func (p *playerService) PlayerPlayCardFromHand(player *Player, cardIndex int) (C
 
 	}
 
-    // newHand holds the value of the player hand minus the card that was played
+	// newHand holds the value of the player hand minus the card that was played
 	var newHand []Card
 
-    // cardPlayed is the card a player want to play
+	// cardPlayed is the card a player want to play
 	cardPlayed := player.Hand[cardIndex]
 
 	// Update the player hand
 	for i := 0; i < len(player.Hand); i++ {
-        // we don't want to add this card back to the player hand so we ignore it
-        // in the loop
+		// we don't want to add this card back to the player hand so we ignore it
+		// in the loop
 		if cardPlayed == player.Hand[i] {
 			continue
 		}
 
-
 		newHand = append(newHand, player.Hand...)
-        // update the player hand with the new hand
-        player.Hand = newHand
+		// update the player hand with the new hand
+		player.Hand = newHand
 	}
 
 	return cardPlayed, nil
@@ -108,5 +120,3 @@ func (p *playerService) PlayerPlayCardFromHand(player *Player, cardIndex int) (C
 func (p *playerService) PlayerAddCardTooHand(player *Player, card Card) {
 	player.Hand = append(player.Hand, card)
 }
-
-

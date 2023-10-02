@@ -11,7 +11,7 @@ type gameService struct {
 
 func NewGameService(cs CardService, bs BoardService, ps PlayerService) GameService {
     cs.NewDeck()
-    bs.NewBoard(boardCellsJSONPath)
+    bs.NewBoard(BoardCellsJSONPath)
 
     return &gameService{
         BoardService: bs,

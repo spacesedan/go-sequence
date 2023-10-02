@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"log/slog"
 	"math/rand"
@@ -13,7 +14,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/spacesedan/go-sequence/internal/rest"
 	"github.com/spacesedan/go-sequence/internal/services"
 	"github.com/unrolled/render"
 )
@@ -23,6 +23,20 @@ func init() {
 }
 
 func main() {
+
+	bs := services.NewBoardService()
+	bs.NewBoard(services.BoardCellsJSONPath)
+	board := bs.GetBoard()
+
+	n := 0
+
+	for i := 0; i < services.BoardSize; i++ {
+		for j := 0; j < services.BoardSize; j++ {
+			fmt.Println(n+1)
+			fmt.Println(board[i][j])
+			n++
+		}
+	}
 
 }
 
@@ -96,9 +110,6 @@ func run() (<-chan error, error) {
 
 func newServer(sc ServerConfig) (*http.Server, error) {
 	router := chi.NewRouter()
-
-	game := services.NewGame(services.GameOptions{})
-	rest.NewGameHandler(game).Register(router)
 
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		sc.render.JSON(w, http.StatusOK, map[string]interface{}{

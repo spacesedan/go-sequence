@@ -4,19 +4,19 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
-	"strings"
 )
 
+const BoardSize = 10
+
 // path to file which contains board game cell information
-const boardCellsJSONPath = "data/board_cells.json"
+const BoardCellsJSONPath = "data/board_cells.json"
 
 type BoardService interface {
 	NewBoard(fn string) error
 	GetBoard() Board
 	AddPlayerChip(p Player, c Card, pos Position) (*BoardCell, error)
-	RemovePlayerChip(pos Position) (string, error)
+	RemovePlayerChip(pos Position) error
 }
 
 type boardService struct {
@@ -37,11 +37,11 @@ type BoardCell struct {
 
 type BoardCells []BoardCell
 
-type Board map[string]*BoardCell
+type Board [BoardSize][BoardSize]*BoardCell
 
 func NewBoardService() BoardService {
 	return &boardService{
-		Board: make(Board),
+		Board: Board{},
 	}
 }
 
@@ -56,7 +56,6 @@ func (b *boardService) NewBoard(fileName string) error {
 
 		// If the cell is a corner
 		if cell.X == 0 && cell.Y == 0 || cell.X == 9 && cell.Y == 0 || cell.X == 0 && cell.Y == 9 || cell.X == 9 && cell.Y == 9 {
-			cellName := fmt.Sprintf("Corner_%v_%v", cell.X, cell.Y)
 
 			// set the values for a corner
 			cell.IsCorner = true
@@ -65,14 +64,12 @@ func (b *boardService) NewBoard(fileName string) error {
 
 			cellPointer := newBoardCell(cell)
 
-			b.Board[cellName] = cellPointer
+			b.Board[cell.X][cell.Y] = cellPointer
 
 		} else {
-			cellName := fmt.Sprintf("%s_%s_%v_%v", cell.Suit, cell.Type, cell.X, cell.Y)
-
 			cellPointer := newBoardCell(cell)
 
-			b.Board[cellName] = cellPointer
+			b.Board[cell.X][cell.Y] = cellPointer
 		}
 
 	}
@@ -94,9 +91,8 @@ type Position struct {
 
 // AddPlayerChip adds a chip to a cell on the board using a card and a cell position
 func (b boardService) AddPlayerChip(player Player, card Card, pos Position) (*BoardCell, error) {
-	cellName := fmt.Sprintf("%s_%s_%d_%d", card.Suit, card.Type, pos.X, pos.Y)
 
-	cell := b.Board[cellName]
+	cell := b.Board[pos.X][pos.Y]
 
 	// check to see if the cell is already occupied
 	if cell.ChipPlaced {
@@ -113,40 +109,31 @@ func (b boardService) AddPlayerChip(player Player, card Card, pos Position) (*Bo
 }
 
 // RemovePlayerChip removes chip and color set on a cell
-func (b boardService) RemovePlayerChip(pos Position) (string, error) {
-	var cellName string
-	// create a substring to help find the board
-	subStr := fmt.Sprintf("_%d_%d", pos.X, pos.Y)
+func (b boardService) RemovePlayerChip(pos Position) error {
+	cell := b.Board[pos.X][pos.Y]
 
-	for name, cell := range b.Board {
-		// find the board to update
-		if strings.Contains(name, subStr) {
-			cellName = name
-			// if the cell does not have a chip set ignore this move and try again
-			if !cell.ChipPlaced {
-				return "", WrapErrorf(
-					errors.New("Illegal Move: cell not taken"),
-					ErrorCodeIllegalMove,
-					"boardService.RemovePlayerChip")
+	if !cell.ChipPlaced {
+		return WrapErrorf(
+			errors.New("Illegal Move: cell not taken"),
+			ErrorCodeIllegalMove,
+			"boardService.RemovePlayerChip")
 
-			}
-
-			if cell.CellLocked {
-				return "", WrapErrorf(
-					errors.New("Illegal Move: cell is a part of a sequence"),
-					ErrorCodeIllegalMove,
-					"boardService.RemovePlayerChip",
-				)
-			}
-
-			// remove the placed chip
-			cell.ChipPlaced = false
-			// remove the teams chip color from the cell
-			cell.ChipColor = ""
-		}
 	}
 
-	return cellName, nil
+	if cell.CellLocked {
+		return WrapErrorf(
+			errors.New("Illegal Move: cell is a part of a sequence"),
+			ErrorCodeIllegalMove,
+			"boardService.RemovePlayerChip",
+		)
+	}
+
+	// remove the placed chip
+	cell.ChipPlaced = false
+	// remove the teams chip color from the cell
+	cell.ChipColor = ""
+
+	return nil
 
 }
 

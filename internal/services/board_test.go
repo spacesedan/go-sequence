@@ -1,7 +1,6 @@
 package services
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -22,8 +21,17 @@ func TestNewBoard(t *testing.T) {
 
 	board := bs.GetBoard()
 
+	// number of cell
+	n := 0
+
+	for i := 0; i < BoardSize; i++ {
+		for j := 0; j < BoardSize; j++ {
+			n++
+		}
+	}
+
 	// Make sure the board has 100 cells
-	if len(board) != 100 {
+	if n != 100 {
 		t.Error("Expected board to contain 100 cells")
 	}
 
@@ -36,8 +44,7 @@ func TestNewBoard(t *testing.T) {
 
 	// Make sure the board corners are in the proper location
 	for _, cp := range cornerPositions {
-		cellName := fmt.Sprintf("Corner_%d_%d", cp.X, cp.Y)
-		cell := board[cellName]
+		cell := board[cp.X][cp.Y]
 
 		if !cell.IsCorner {
 			t.Errorf("Expected cell at postion X: %d Y: %d, to be a corner", cp.X, cp.Y)
@@ -90,9 +97,6 @@ func TestAddPlayerChip(t *testing.T) {
 
 	board := bs.GetBoard()
 
-	// random cell
-	cellName := "Spade_Four_6_0"
-
 	// player color
 	color := "green"
 
@@ -118,7 +122,7 @@ func TestAddPlayerChip(t *testing.T) {
 	bs.AddPlayerChip(player, card, pos)
 
 	// get cell from the board
-	cell := board[cellName]
+	cell := board[pos.X][pos.Y]
 
 	// check to see if the color of the cell is equal to the player color
 	if cell.ChipColor != color {
@@ -175,8 +179,6 @@ func TestRemovePlayerChip(t *testing.T) {
 
 	board := bs.GetBoard()
 
-	cellName := "Spade_Four_6_0"
-
 	color := "green"
 
 	player := Player{
@@ -198,7 +200,7 @@ func TestRemovePlayerChip(t *testing.T) {
 
 	bs.RemovePlayerChip(pos)
 
-	cell := board[cellName]
+	cell := board[pos.X][pos.Y]
 
 	if cell.ChipColor != "" {
 		t.Error("Expected chip to be empty")
@@ -219,7 +221,7 @@ func TestRemovePlayerChipCellNotTaken(t *testing.T) {
 		Y: 0,
 	}
 
-	_, err := bs.RemovePlayerChip(pos)
+	err := bs.RemovePlayerChip(pos)
 	if err == nil {
 		t.Error("Expected an error, there is no chip on this cell")
 	}
@@ -251,7 +253,7 @@ func TestRemovePlayerChipCellLocked(t *testing.T) {
 
 	cell.CellLocked = true
 
-	_, err := bs.RemovePlayerChip(pos)
+	err := bs.RemovePlayerChip(pos)
 	if err == nil {
 		t.Error("Expected error while removing a locked cell, but got none")
 	}

@@ -101,7 +101,7 @@ func TestAddPlayerChip(t *testing.T) {
 	color := "green"
 
 	// player stub
-	player := Player{
+	player := &Player{
 		Name:  "Player 1",
 		Color: color,
 	}
@@ -133,10 +133,13 @@ func TestAddPlayerChip(t *testing.T) {
 	if !cell.ChipPlaced {
 		t.Error("Expected chip placed to be true")
 	}
+
+	if cell.Player != player {
+		t.Error("Expected players to be the same")
+	}
 }
 
 func TestAddPlayerChipIllegalMove(t *testing.T) {
-
 	bs := NewBoardService()
 	bs.NewBoard(TestPath)
 
@@ -144,7 +147,7 @@ func TestAddPlayerChipIllegalMove(t *testing.T) {
 	color := "green"
 
 	// player stub
-	player := Player{
+	player := &Player{
 		Name:  "Player 1",
 		Color: color,
 	}
@@ -181,7 +184,7 @@ func TestRemovePlayerChip(t *testing.T) {
 
 	color := "green"
 
-	player := Player{
+	player := &Player{
 		Name:  "Player 1",
 		Color: color,
 	}
@@ -234,7 +237,7 @@ func TestRemovePlayerChipCellLocked(t *testing.T) {
 
 	color := "green"
 
-	player := Player{
+	player := &Player{
 		Name:  "Player 1",
 		Color: color,
 	}

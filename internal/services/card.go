@@ -106,7 +106,7 @@ func (c *cardService) DealCards(players Players, handSize int) {
 			card := c.dealOneCard()
 			player.Hand = append(player.Hand, card)
 		}
-}
+	}
 }
 
 // DrawCard Draw a card from the deck and add it to the players hand

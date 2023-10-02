@@ -28,15 +28,11 @@ func main() {
 	bs.NewBoard(services.BoardCellsJSONPath)
 	board := bs.GetBoard()
 
-	n := 0
+	cell := board[1][0]
 
-	for i := 0; i < services.BoardSize; i++ {
-		for j := 0; j < services.BoardSize; j++ {
-			fmt.Println(n+1)
-			fmt.Println(board[i][j])
-			n++
-		}
-	}
+	fmt.Println(cell)
+
+
 
 }
 

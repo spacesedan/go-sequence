@@ -8,12 +8,14 @@ import (
 
 // Player contains information for a single player
 type Player struct {
-	Hand       []Card
-	CellsTaken map[string]string
-	Color      string
-	ID         uuid.UUID
-	Name       string
+	Hand  []Card
+	Cells PlayerCells
+	Color string
+	ID    uuid.UUID
+	Name  string
 }
+
+type PlayerCells [BoardSize][BoardSize]*BoardCell
 
 type Players map[uuid.UUID]*Player
 
@@ -46,7 +48,7 @@ func (p *playerService) AddPlayer(player *Player) error {
 			"playerService.AddPlayer",
 		)
 	}
-	player.CellsTaken = make(map[string]string)
+	player.Cells = PlayerCells{}
 	p.Players[player.ID] = player
 
 	return nil

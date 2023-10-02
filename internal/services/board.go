@@ -7,15 +7,10 @@ import (
 	"os"
 )
 
-const BoardSize = 10
-
-// path to file which contains board game cell information
-const BoardCellsJSONPath = "data/board_cells.json"
-
 type BoardService interface {
 	NewBoard(fn string) error
 	GetBoard() Board
-	AddPlayerChip(p Player, c Card, pos Position) (*BoardCell, error)
+	AddPlayerChip(p *Player, c Card, pos Position) (*BoardCell, error)
 	RemovePlayerChip(pos Position) error
 }
 
@@ -25,14 +20,15 @@ type boardService struct {
 
 // BoardLocation are the spots inside of the board
 type BoardCell struct {
-	Type       string `json:"type"`
-	Suit       string `json:"suit"`
-	X          int    `json:"x"`
-	Y          int    `json:"y"`
-	CellLocked bool   `json:"cell_locked"`
-	IsCorner   bool   `json:"is_corner"`
-	ChipPlaced bool   `json:"chip_placed"`
-	ChipColor  string `json:"chip_color"`
+	Type       string  `json:"type"`
+	Suit       string  `json:"suit"`
+	X          int     `json:"x"`
+	Y          int     `json:"y"`
+	CellLocked bool    `json:"cell_locked"`
+	IsCorner   bool    `json:"is_corner"`
+	ChipPlaced bool    `json:"chip_placed"`
+	ChipColor  string  `json:"chip_color"`
+	Player     *Player `json:",omitempty"`
 }
 
 type BoardCells []BoardCell
@@ -90,7 +86,7 @@ type Position struct {
 }
 
 // AddPlayerChip adds a chip to a cell on the board using a card and a cell position
-func (b boardService) AddPlayerChip(player Player, card Card, pos Position) (*BoardCell, error) {
+func (b boardService) AddPlayerChip(player *Player, card Card, pos Position) (*BoardCell, error) {
 
 	cell := b.Board[pos.X][pos.Y]
 
@@ -102,8 +98,11 @@ func (b boardService) AddPlayerChip(player Player, card Card, pos Position) (*Bo
 			"boardService.AddPlayerChip")
 	}
 
+	player.Cells[pos.X][pos.Y] = cell
+
 	cell.ChipColor = player.Color
 	cell.ChipPlaced = true
+	cell.Player = player
 
 	return cell, nil
 }
@@ -128,10 +127,14 @@ func (b boardService) RemovePlayerChip(pos Position) error {
 		)
 	}
 
+	// Remove the cell from the player
+	cell.Player.Cells[pos.X][pos.Y] = nil
+
 	// remove the placed chip
 	cell.ChipPlaced = false
 	// remove the teams chip color from the cell
 	cell.ChipColor = ""
+	cell.Player = nil
 
 	return nil
 

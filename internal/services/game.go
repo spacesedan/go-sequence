@@ -2,9 +2,7 @@ package services
 
 import "log/slog"
 
-type GameService interface{}
-
-type gameService struct {
+type GameService struct {
 	BoardService
 	CardService
 	PlayerService
@@ -22,11 +20,18 @@ const (
 	BoardCellsJSONPath = "data/board_cells.json"
 )
 
-func NewGameService(cs CardService, bs BoardService, ps PlayerService) GameService {
+func NewGameService(logger *slog.Logger) GameService {
+	// initialize our services
+	cs := NewCardService()
+	bs := NewBoardService()
+	ps := NewPlayerService()
+
+	// create a new deck
 	cs.NewDeck()
+	// create the board
 	bs.NewBoard(BoardCellsJSONPath)
 
-	return &gameService{
+	return GameService{
 		BoardService:  bs,
 		CardService:   cs,
 		PlayerService: ps,

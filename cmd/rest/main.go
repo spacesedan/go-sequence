@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"log/slog"
 	"math/rand"
@@ -14,8 +13,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/spacesedan/go-sequence/internal/handlers"
 	"github.com/spacesedan/go-sequence/internal/services"
-	"github.com/unrolled/render"
 )
 
 func init() {
@@ -23,20 +22,6 @@ func init() {
 }
 
 func main() {
-
-	bs := services.NewBoardService()
-	bs.NewBoard(services.BoardCellsJSONPath)
-	board := bs.GetBoard()
-
-	cell := board[1][0]
-
-	fmt.Println(cell)
-
-
-
-}
-
-func main_() {
 
 	errC, err := run()
 	if err != nil {
@@ -51,7 +36,7 @@ func main_() {
 
 type ServerConfig struct {
 	address string
-	render  *render.Render
+	logger  *slog.Logger
 }
 
 func run() (<-chan error, error) {
@@ -67,7 +52,7 @@ func run() (<-chan error, error) {
 
 	serverConfig := ServerConfig{
 		address: ":42069",
-		render:  render.New(),
+		logger:  logger,
 	}
 
 	srv, _ := newServer(serverConfig)
@@ -105,16 +90,19 @@ func run() (<-chan error, error) {
 }
 
 func newServer(sc ServerConfig) (*http.Server, error) {
-	router := chi.NewRouter()
+	r := chi.NewRouter()
 
-	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		sc.render.JSON(w, http.StatusOK, map[string]interface{}{
-			"Hello": "World",
-		})
-	})
+	fs := http.FileServer(http.Dir("assets"))
+	r.Handle("/static/*", http.StripPrefix("/static/", fs))
+
+	gs := services.NewGameService(sc.logger)
+
+	board := gs.BoardService.GetBoard()
+
+	handlers.NewViewHandler(board).Register(r)
 
 	return &http.Server{
-		Handler:           router,
+		Handler:           r,
 		Addr:              sc.address,
 		ReadTimeout:       1 * time.Second,
 		WriteTimeout:      1 * time.Second,

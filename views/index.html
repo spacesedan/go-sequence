@@ -1,0 +1,22 @@
+<main class="pt-6 px-6 pb-24 bg-blue-900">
+    <div class="bg-white min-h-full rounded-lg p-12">
+        <h1 class="font-mono text-5xl text-black font-black">Sequence</h1>
+
+        <!---  Render the board  --->
+        <div class="grid grid-cols-10 grid-rows-10 gap-3">
+            {{ range .Cells }}
+            {{ if .IsCorner }}
+            <img src="/static/images/cards/1J.svg" alt="Corner">
+            {{ else }}
+            <div class="relative">
+                <div class="absolute z-10 border-4 border-black shadow-md rounded-full h-20 w-20 left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-700 "></div>
+                <img class="absolute z-0 object-cover w-full h-full" id="board-cell-{{ .X }}-{{ .Y }}" data-position-x="{{ .X }}"
+                    data-position-y="{{ .Y }}" src="/static/images/cards/{{ .Type }}_{{ .Suit }}.svg"
+                    alt="{{ .Type }}_{{ .Suit }}">
+
+            </div>
+            {{ end }}
+            {{ end }}
+        </div>
+    </div>
+</main>

@@ -1,4 +1,4 @@
-package services
+package game
 
 import (
 	"testing"
@@ -147,8 +147,8 @@ func TestPlayerAddCardTooHand(t *testing.T) {
 
 	player, _ = ps.GetPlayer(player.ID)
 
-    if player.Hand[0] != card {
-        t.Error("Expected this card to equal the one we just added")
-    }
+	if player.Hand[0] != card {
+		t.Error("Expected this card to equal the one we just added")
+	}
 
 }

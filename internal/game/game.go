@@ -14,6 +14,7 @@ import (
 
 type GameService interface {
 	// Deck & Discard Pile
+	DealOneCard() Card
 	DealCards() error
 	DrawCard(*Player) Card
 	AddToDiscardPile(Card)
@@ -32,7 +33,7 @@ type GameService interface {
 	GetPlayers() Players
 
 	PlayerPlayCardFromHand(*Player, int) (Card, error)
-	PlayerAddCardTooHand(*Player, Card)
+	PlayerAddCardToHand(*Player, Card)
 }
 
 type gameService struct {
@@ -54,8 +55,8 @@ const (
 	BoardCellsJSONPath = "data/board_cells.json"
 )
 
-func NewGameService() GameService {
-	board, err := NewBoard(BoardCellsJSONPath)
+func NewGameService(fn string) GameService {
+	board, err := NewBoard(fn)
 	if err != nil {
 		panic(err)
 	}
@@ -111,7 +112,7 @@ func shuffleDeck(d Deck) Deck {
 }
 
 // dealOneCard get a single card from the deck and update the deck
-func (g *gameService) dealOneCard() Card {
+func (g *gameService) DealOneCard() Card {
 
 	// if the deck size reaches zero
 	if len(g.Deck) == 0 {
@@ -143,7 +144,7 @@ func (g *gameService) DealCards() error {
 	// Deal a single card to every player until the desired hand size is reached
 	for i := 0; i < HandSize; i++ {
 		for _, player := range g.Players {
-			card := g.dealOneCard()
+			card := g.DealOneCard()
 			player.Hand = append(player.Hand, card)
 		}
 	}
@@ -154,7 +155,7 @@ func (g *gameService) DealCards() error {
 // DrawCard Draw a card from the deck and add it to the players hand
 func (g *gameService) DrawCard(player *Player) Card {
 	if len(player.Hand) < HandSize {
-		card := g.dealOneCard()
+		card := g.DealOneCard()
 		return card
 	}
 
@@ -396,7 +397,7 @@ func (g *gameService) PlayerPlayCardFromHand(player *Player, cardIndex int) (Car
 	return cardPlayed, nil
 }
 
-// PlayerAddCardTooHand adds a card to the players hand
-func (g *gameService) PlayerAddCardTooHand(player *Player, card Card) {
+// PlayerAddCardToHand adds a card to the players hand
+func (g *gameService) PlayerAddCardToHand(player *Player, card Card) {
 	player.Hand = append(player.Hand, card)
 }

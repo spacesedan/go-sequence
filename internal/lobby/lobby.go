@@ -1,9 +1,13 @@
 package lobby
 
 import (
+	"math/rand"
+
 	"github.com/google/uuid"
 	"github.com/spacesedan/go-sequence/internal/game"
 )
+
+const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type GameLobby struct {
 	ID       string
@@ -28,8 +32,11 @@ func NewLobbyManager() *LobbyManager {
 }
 
 func generateUniqueLobbyId() string {
-    newId := uuid.New()
-    return newId.String()
+    result := make([]byte, 4)
+    for i := range result {
+        result[i] = charset[rand.Intn(len(charset))]
+    }
+    return string(result)
 }
 
 func (lm *LobbyManager) CreateLobby(s Settings) string {
@@ -41,8 +48,7 @@ func (lm *LobbyManager) CreateLobby(s Settings) string {
 		Settings: s,
 	}
 
-    lm.Lobbies[lobbyId] = newLobby
+	lm.Lobbies[lobbyId] = newLobby
 
-    return lobbyId
-
+	return lobbyId
 }

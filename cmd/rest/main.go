@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"log/slog"
 	"math/rand"
@@ -14,7 +13,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/spacesedan/go-sequence/internal/game"
+	"github.com/spacesedan/go-sequence/internal/handlers"
+	"github.com/spacesedan/go-sequence/internal/lobby"
 )
 
 func init() {
@@ -22,19 +22,6 @@ func init() {
 }
 
 func main() {
-	gs := game.NewGameService()
-	deck := gs.GetDeck()
-	board := gs.GetBoard()
-	fmt.Println(deck)
-
-    for i:= 0; i < 10; i++ {
-        for j:= 0; j< 10; j++ {
-            fmt.Println(board[i][j])
-        }
-    }
-}
-
-func _main() {
 
 	errC, err := run()
 	if err != nil {
@@ -104,6 +91,12 @@ func run() (<-chan error, error) {
 
 func newServer(sc ServerConfig) (*http.Server, error) {
 	r := chi.NewRouter()
+
+    lm := lobby.NewLobbyManager(sc.logger)
+
+    handlers.NewLobbyHandler(lm, sc.logger).Register(r)
+    handlers.NewViewHandler().Register(r)
+
 
 	fs := http.FileServer(http.Dir("assets"))
 	r.Handle("/static/*", http.StripPrefix("/static/", fs))

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -29,11 +30,11 @@ func NewLobbyHandler(lm *lobby.LobbyManager, l *slog.Logger) *LobbyHandler {
 }
 
 func (lh *LobbyHandler) Register(m *chi.Mux) {
-	m.HandleFunc("/ws", lh.Serve)
+	m.HandleFunc("/lobby/ws", lh.Serve)
 }
 
 func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
-	lm.logger.Info("Connected to socker")
+	lm.logger.Info("Connected to socket")
 
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -42,9 +43,11 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Printf("%#v", ws)
+
 	var response lobby.WsJsonResponse
 	response.Action = "connected"
-	response.Message = `<p id="wsStatus">Welcome to the lobby</p>`
+	response.Message = `<h1 id="wsStatus">Welcome to Go-Sequence</h1>`
 
 	err = ws.WriteMessage(websocket.TextMessage, []byte(response.Message))
 	if err != nil {

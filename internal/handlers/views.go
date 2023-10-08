@@ -27,9 +27,7 @@ func NewViewHandler() *ViewHandler {
 
 func (v ViewHandler) Register(r *chi.Mux) {
 	r.Get("/", v.HomePage)
-	r.Route("/lobby", func(r chi.Router) {
-        r.Get("/create", v.CreateLobbyPage)
-	})
+	r.Get("/lobby-create", v.CreateLobbyPage)
 }
 
 func (v ViewHandler) HomePage(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +51,7 @@ func (v ViewHandler) CreateLobbyPage(w http.ResponseWriter, r *http.Request) {
 		"Title": "Create a new lobby",
 	}
 
-	err := v.Views.ExecuteTemplate(w, "create_lobby", "main", data)
+	err := v.Views.ExecuteTemplate(w, "create_lobby", "with_ws", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

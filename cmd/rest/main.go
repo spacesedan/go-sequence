@@ -92,12 +92,15 @@ func run() (<-chan error, error) {
 func newServer(sc ServerConfig) (*http.Server, error) {
 	r := chi.NewRouter()
 
+	// start services
     lm := lobby.NewLobbyManager(sc.logger)
 
+	// Register handlers
     handlers.NewLobbyHandler(lm, sc.logger).Register(r)
     handlers.NewViewHandler().Register(r)
 
 
+	// handler static files
 	fs := http.FileServer(http.Dir("assets"))
 	r.Handle("/static/*", http.StripPrefix("/static/", fs))
 

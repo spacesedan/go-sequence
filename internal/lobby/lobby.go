@@ -53,7 +53,7 @@ func (lm *LobbyManager) ListenToWsChannel() {
 func (lm *LobbyManager) ListenForWs(conn *WsConnection) {
 	defer func() {
 		if r := recover(); r != nil {
-			lm.logger.Error("Error: Attempting to recover", slog.Any("reason: ", r))
+			lm.logger.Error("Error: Attempting to recover", slog.Any("reason", r))
 		}
 	}()
 

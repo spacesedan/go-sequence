@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -43,8 +42,6 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("%#v", ws)
-
 	var response lobby.WsJsonResponse
 	response.Action = "connected"
 	response.Message = `<h1 id="wsStatus">Welcome to Go-Sequence</h1>`
@@ -52,7 +49,7 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	err = ws.WriteMessage(websocket.TextMessage, []byte(response.Message))
 	if err != nil {
 		lm.logger.Error("Something when trying to send a message to the client",
-		slog.String("err", err.Error()))
+			slog.String("err", err.Error()))
 	}
 
 	conn := lobby.WsConnection{Conn: ws}

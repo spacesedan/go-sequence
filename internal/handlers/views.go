@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -25,9 +26,14 @@ func NewViewHandler() *ViewHandler {
 	}
 }
 
+// valid lobby ids are made up of 4 characters that contain any configuration
+// of this regex
+const lobbyIdRegex string = `[0-9A-Z]{4}`
+
 func (v ViewHandler) Register(r *chi.Mux) {
 	r.Get("/", v.HomePage)
 	r.Get("/lobby-create", v.CreateLobbyPage)
+	r.Get(fmt.Sprintf("/lobby/{lobbyID:%s}", lobbyIdRegex), v.LobbyPage)
 }
 
 func (v ViewHandler) HomePage(w http.ResponseWriter, r *http.Request) {
@@ -52,6 +58,20 @@ func (v ViewHandler) CreateLobbyPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := v.Views.ExecuteTemplate(w, "create_lobby", "with_ws", data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
+	lobbyID := chi.URLParam(r, "lobbyID")
+
+	fmt.Println(lobbyID)
+	data := map[string]interface{}{
+		"Title": fmt.Sprintf("Lobby %s", lobbyID),
+	}
+
+	err := v.Views.ExecuteTemplate(w, "index", "with_ws", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

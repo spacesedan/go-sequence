@@ -1,4 +1,20 @@
 <main hx-ext="ws" ws-connect="/lobby/ws">
     <h1 id="wsStatus"></h1>
-    <p>Create a new lobby</p>
+
+    <form id="game-settings" class="p-5 bg-orange-400 font-mono flex gap-5 items-end font-bold" ws-send>
+        <div class="flex flex-col gap-0.5">
+            <label for="num_of_players" class="lowercase text-sm leading-5">Number of players</label>
+            <input type="number" name="num_of_players" id="num_of_players" class="px-3 py-2 rounded-md">
+        </div>
+        <div class="flex flex-col gap-0.5">
+            <label for="max_hand_size" class="lowercase text-sm leading-5">Max Hand size</label>
+            <input type="number" max="7" min="1" name="max_hand_size" id="max_hand_size" class="px-3 py-2 rounded-md">
+        </div>
+
+        <button type="submit" class="bg-blue-700 px-3 py-2 rounded-md text-white">Send</button>
+    </form>
+
+    <a id="lobby_link"></a>
+
+    <script type="text/javascript" src="static/js/create_lobby.js"></script>
 </main>

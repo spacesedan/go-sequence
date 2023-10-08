@@ -27,7 +27,7 @@ type Settings struct {
 type LobbyManager struct {
 	logger    *slog.Logger
 	Lobbies   map[string]GameLobby
-	Clients   map[WsConnection]string
+	Clients   map[WsConnection]bool
 	WsChan    chan WsPayload
 	LobbyChan chan WsPayload
 }
@@ -36,36 +36,25 @@ func NewLobbyManager(l *slog.Logger) *LobbyManager {
 	return &LobbyManager{
 		Lobbies: make(map[string]GameLobby),
 		WsChan:  make(chan WsPayload),
-		Clients: make(map[WsConnection]string),
+		Clients: make(map[WsConnection]bool),
 		logger:  l,
 	}
 }
 
 func (lm *LobbyManager) ListenToWsChannel() {
 	var response WsJsonResponse
+	response.Headers = make(map[string]interface{})
 	for {
 		e := <-lm.WsChan
 		fmt.Printf("%v", e)
 		switch e.Action {
 		case "create_lobby":
-			response.Action = "new_lobby"
 			lm.logger.Info("Creating new lobby")
-			lobbyId := lm.CreateLobby(e.Settings, e.Conn)
+			response.CurrentConn = e.Conn
+			response.SkipSender = false
+			lobbyId := lm.CreateLobby(e.Settings, response)
 			lm.logger.Info("Lobby created", slog.String("lobby id", lobbyId))
 
-			for client := range lm.Clients {
-				if e.Conn == client {
-					fmt.Println("true")
-					response.Message = fmt.Sprintf(`<a href="/lobby/%s" id="lobby_link">Go to lobby</a>`, lobbyId)
-					err := client.WriteMessage(websocket.TextMessage, []byte(response.Message))
-					if err != nil {
-						fmt.Println(err)
-					}
-				}
-
-			}
-
-			fmt.Println("Number of active lobbies", len(lm.Lobbies))
 		default:
 		}
 	}
@@ -88,6 +77,7 @@ func (lm *LobbyManager) ListenForWs(conn *WsConnection) {
 		} else {
 			payload.Conn = *conn
 			lm.WsChan <- payload
+
 		}
 	}
 }
@@ -100,7 +90,7 @@ func generateUniqueLobbyId() string {
 	return string(result)
 }
 
-func (lm *LobbyManager) CreateLobby(s Settings, conn WsConnection) string {
+func (lm *LobbyManager) CreateLobby(s Settings, response WsJsonResponse) string {
 	lobbyId := generateUniqueLobbyId()
 
 	newLobby := GameLobby{
@@ -110,8 +100,20 @@ func (lm *LobbyManager) CreateLobby(s Settings, conn WsConnection) string {
 		Settings: s,
 	}
 
-	newLobby.Clients[conn] = true
+	newLobby.Clients[response.CurrentConn] = true
 	lm.Lobbies[lobbyId] = newLobby
 
+	response.Message = fmt.Sprintf(`<a id="lobby_link" href="/lobby/%s" '>Go to lobby</a>`, lobbyId)
+
+	for client := range lm.Clients {
+		if client == response.CurrentConn {
+			client.WriteMessage(websocket.TextMessage, []byte(response.Message))
+		}
+	}
+
 	return lobbyId
+}
+
+func (lm *LobbyManager) JoinLobby(lobbyId string, response WsJsonResponse) {
+	lm.Lobbies[lobbyId].Clients[response.CurrentConn] = true
 }

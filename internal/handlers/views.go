@@ -64,14 +64,16 @@ func (v ViewHandler) CreateLobbyPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Will this print")
 	lobbyID := chi.URLParam(r, "lobbyID")
 
-	fmt.Println(lobbyID)
 	data := map[string]interface{}{
-		"Title": fmt.Sprintf("Lobby %s", lobbyID),
-	}
+		"Title":   fmt.Sprintf("Lobby %s", lobbyID),
+		"LobbyID": lobbyID}
 
-	err := v.Views.ExecuteTemplate(w, "index", "with_ws", data)
+	fmt.Println(data)
+
+	err := v.Views.ExecuteTemplate(w, "lobby", "with_ws", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

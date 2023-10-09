@@ -20,3 +20,7 @@ document.body.addEventListener("htmx:wsClose", function(e) {
 
     e.detail.socketWrapper.send(JSON.stringify(message), e.detail.elt)
 })
+
+document.body.addEventListener("htmx:afterSwap", function(e) {
+    console.log(e)
+})

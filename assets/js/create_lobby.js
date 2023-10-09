@@ -15,6 +15,8 @@ document.body.addEventListener("htmx:wsAfterMessage", function(e){
     console.log(e)
 })
 
-document.body.addEventListener("htmx:wsClose", function(e) {
+
+
+document.body.addEventListener("htmx:afterSwap", function(e) {
     console.log(e)
 })

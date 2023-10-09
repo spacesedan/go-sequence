@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -14,7 +13,6 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		fmt.Println("URL", r.URL.RawQuery)
 
 		return true
 	},
@@ -45,14 +43,7 @@ type Task struct {
 func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	lm.logger.Info("Connected to socket")
 
-	action := r.URL.Query().Get("action")
-	subject := r.URL.Query().Get("subject")
-    lobbyId := r.URL.Query().Get("lobbyID")
-
-	switch subject {
-	case "lobby":
-		fmt.Println("lobby", action, lobbyId)
-	}
+	lobbyId := r.URL.Query().Get("lobbyID")
 
 	// if i add any infomration to the url i can parse it out here and
 	// uses it however i want
@@ -66,6 +57,7 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 
 	var response lobby.WsJsonResponse
 	response.Action = "connected"
+	response.LobbyID = lobbyId
 	response.Message = `<h1 id="wsStatus">Welcome to Go-Sequence</h1>`
 
 	err = ws.WriteMessage(websocket.TextMessage, []byte(response.Message))

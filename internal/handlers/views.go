@@ -71,7 +71,6 @@ func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
 		"Title":   fmt.Sprintf("Lobby %s", lobbyID),
 		"LobbyID": lobbyID}
 
-	fmt.Println(data)
 
 	err := v.Views.ExecuteTemplate(w, "lobby", "with_ws", data)
 	if err != nil {

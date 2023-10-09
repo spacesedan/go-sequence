@@ -10,10 +10,11 @@ type WsJsonResponse struct {
 	Headers        map[string]interface{} `json:"HEADERS"`
 	Action         string                 `json:"action"`
 	Message        string                 `json:"message"`
-	MessageType    string                 `json:"message_type"`
-	SkipSender     bool                   `json:"-"`
-	CurrentConn    WsConnection           `json:"-"`
-	ConnectedUsers []string               `json:"-"`
+	LobbyID        string
+	MessageType    string       `json:"message_type"`
+	SkipSender     bool         `json:"-"`
+	CurrentConn    WsConnection `json:"-"`
+	ConnectedUsers []string     `json:"-"`
 }
 
 type WsPayload struct {
@@ -21,6 +22,7 @@ type WsPayload struct {
 	Action   string            `json:"action"`
 	Settings Settings          `json:"settings"`
 	ID       string            `json:"id"`
+	LobbyID  string            `json:"lobby_id"`
 	User     string            `json:"user"`
 	Message  string            `json:"message"`
 	Conn     WsConnection

@@ -14,3 +14,7 @@ document.body.addEventListener("htmx:wsConfigSend", function(e) {
 document.body.addEventListener("htmx:wsAfterMessage", function(e){
     console.log(e)
 })
+
+document.body.addEventListener("htmx:wsClose", function(e) {
+    console.log(e)
+})

@@ -15,7 +15,7 @@ type GameLobby struct {
 	ID       string
 	Game     game.GameService
 	Settings Settings
-	Clients  map[WsConnection]bool
+	Clients  map[string]WsConnection
 }
 
 type Settings struct {
@@ -26,7 +26,7 @@ type Settings struct {
 
 type LobbyManager struct {
 	logger    *slog.Logger
-	Lobbies   map[string]GameLobby
+	Lobbies   map[string]*GameLobby
 	Clients   map[WsConnection]bool
 	WsChan    chan WsPayload
 	LobbyChan chan WsPayload
@@ -34,7 +34,7 @@ type LobbyManager struct {
 
 func NewLobbyManager(l *slog.Logger) *LobbyManager {
 	return &LobbyManager{
-		Lobbies: make(map[string]GameLobby),
+		Lobbies: make(map[string]*GameLobby),
 		WsChan:  make(chan WsPayload),
 		Clients: make(map[WsConnection]bool),
 		logger:  l,
@@ -43,17 +43,32 @@ func NewLobbyManager(l *slog.Logger) *LobbyManager {
 
 func (lm *LobbyManager) ListenToWsChannel() {
 	var response WsJsonResponse
-	response.Headers = make(map[string]interface{})
 	for {
 		e := <-lm.WsChan
-		fmt.Printf("%v", e)
 		switch e.Action {
 		case "create_lobby":
 			lm.logger.Info("Creating new lobby")
+
 			response.CurrentConn = e.Conn
 			response.SkipSender = false
+
 			lobbyId := lm.CreateLobby(e.Settings, response)
+
 			lm.logger.Info("Lobby created", slog.String("lobby id", lobbyId))
+
+			fmt.Println(len(lm.Clients))
+		case "join_lobby":
+			lm.logger.Info("Joining lobby", slog.String("lobby_id", e.LobbyID))
+			response.LobbyID = e.LobbyID
+			response.CurrentConn = e.Conn
+			lm.JoinLobby(response)
+			if lm.Lobbies[response.LobbyID] != nil {
+				fmt.Println(lm.Lobbies[response.LobbyID])
+				fmt.Println(len(lm.Lobbies[response.LobbyID].Clients))
+			}
+
+		case "leave_lobby":
+			lm.logger.Info("Leaving lobby")
 
 		default:
 		}
@@ -61,7 +76,11 @@ func (lm *LobbyManager) ListenToWsChannel() {
 }
 
 func (lm *LobbyManager) ListenForWs(conn *WsConnection) {
+	fmt.Printf("%#v", len(lm.Clients))
 	defer func() {
+		// if anything happens to the connection remove the connection and recover
+		conn.WriteMessage(websocket.TextMessage, []byte("Closing connection"))
+		delete(lm.Clients, *conn)
 		if r := recover(); r != nil {
 			lm.logger.Error("Error: Attempting to recover", slog.Any("reason", r))
 		}
@@ -72,7 +91,6 @@ func (lm *LobbyManager) ListenForWs(conn *WsConnection) {
 	for {
 		err := conn.ReadJSON(&payload)
 		if err != nil {
-			fmt.Println(err)
 			// ... just ignore it
 		} else {
 			payload.Conn = *conn
@@ -93,27 +111,33 @@ func generateUniqueLobbyId() string {
 func (lm *LobbyManager) CreateLobby(s Settings, response WsJsonResponse) string {
 	lobbyId := generateUniqueLobbyId()
 
-	newLobby := GameLobby{
+	newLobby := &GameLobby{
 		ID:       lobbyId,
 		Game:     game.NewGameService(game.BoardCellsJSONPath),
-		Clients:  make(map[WsConnection]bool),
+		Clients:  make(map[string]WsConnection),
 		Settings: s,
 	}
 
-	newLobby.Clients[response.CurrentConn] = true
 	lm.Lobbies[lobbyId] = newLobby
 
-	response.Message = fmt.Sprintf(`<a id="lobby_link" href="/lobby/%s" '>Go to lobby</a>`, lobbyId)
+	response.Message = fmt.Sprintf(`<a id="lobby_link" href="/lobby/%s">Go to lobby</a>`, lobbyId)
 
 	for client := range lm.Clients {
 		if client == response.CurrentConn {
-			client.WriteMessage(websocket.TextMessage, []byte(response.Message))
+			client.Conn.WriteMessage(websocket.TextMessage, []byte(response.Message))
 		}
 	}
 
 	return lobbyId
 }
 
-func (lm *LobbyManager) JoinLobby(lobbyId string, response WsJsonResponse) {
-	lm.Lobbies[lobbyId].Clients[response.CurrentConn] = true
+func (lm *LobbyManager) JoinLobby(response WsJsonResponse) {
+	userId := generateUniqueLobbyId()
+
+	for k, l := range lm.Lobbies {
+		if response.LobbyID == k {
+			l.Clients[userId] = response.CurrentConn
+		}
+
+	}
 }

@@ -3,18 +3,21 @@
     <div class="bg-white h-[90vh] rounded-lg p-12">
         <div class="flex h-full flex-col justify-center items-center p-4 gap-y-2 font-mono">
             <div class="border-4 border-blue-700  p-5 rounded-md ">
-                <h1 class="font-mono text-5xl text-black font-black lowercase mb-5">go-Sequence</h1>
+                <h1 class="font-mono text-5xl text-black font-black lowercase my-2">go-Sequence</h1>
 
                 <!-- Username generation-->
                 <div class="flex flex-col justify-center items-center">
-                    <button
-                        id="generate-btn"
-                        hx-get="/lobby/generate_username"
-                        hx-target="#generated_username">
-
+                    {{ if .Username }}
+                    <h4 id="generated_username" class="my-1 cursor-copy hover:bg-gray-100 px-1 py-0.5">
+                        {{ .UserName }}
+                    </h4>
+                    {{ else }}
+                    <button id="generate-btn" hx-get="/lobby/generate_username" hx-target="#generated_username">
                         Generate a random user name
                     </button>
                     <h4 id="generated_username" class="my-1 cursor-copy hover:bg-gray-100 px-1 py-0.5"></h4>
+
+                    {{ end }}
                 </div>
                 <!-- Lobby Options-->
                 <div class="flex gap-5">

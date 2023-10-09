@@ -78,12 +78,17 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	go lm.LobbyManager.ListenForWs(&conn)
 }
 
+// GenerateUsername generates a username and stores the value in the session.
 func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request) {
 	randomName := randomdata.SillyName()
 	randomNumber := randomdata.Number(42069)
 
-	lm.sm.Put(r.Context(), "username", fmt.Sprintf("%d%s", randomNumber, randomName))
-	msg := lm.sm.GetString(r.Context(), "username")
+	// construct the username
+	userName := fmt.Sprintf("%d%s", randomNumber, randomName)
 
-	render.Text(w, http.StatusOK, msg)
+	// add the username to the session
+	lm.sm.Put(r.Context(), "username", userName)
+
+	// send the response back to the client
+	render.Text(w, http.StatusOK, userName)
 }

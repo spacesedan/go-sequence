@@ -42,8 +42,15 @@ func (v ViewHandler) Register(r *chi.Mux) {
 func (v ViewHandler) IndexPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content/Type", "text/html; charset=utf-8")
 
+	var userName string
+	userName = v.sm.GetString(r.Context(), "username")
+
+	fmt.Println("username", userName)
+
+
 	data := map[string]interface{}{
 		"Title": "Sequence Web",
+		"UserName": userName,
 	}
 
 	err := v.Views.ExecuteTemplate(w, "index", "main", data)

@@ -83,11 +83,23 @@ func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request)
 	randomName := randomdata.SillyName()
 	randomNumber := randomdata.Number(42069)
 
+
 	// construct the username
 	userName := fmt.Sprintf("%d%s", randomNumber, randomName)
 
+    cookie :=http.Cookie{
+        Name: "username",
+        Value: userName,
+        Path: "/",
+        MaxAge: 3600,
+        HttpOnly: true,
+        Secure: true,
+        SameSite: http.SameSiteNoneMode,
+    }
+
+    http.SetCookie(w, &cookie)
 	// add the username to the session
-	lm.sm.Put(r.Context(), "username", userName)
+    lm.sm.Put(r.Context(), fmt.Sprintf("username:%s", userName), userName)
 
 	// send the response back to the client
 	render.Text(w, http.StatusOK, userName)

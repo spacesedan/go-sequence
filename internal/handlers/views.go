@@ -42,27 +42,30 @@ func (v ViewHandler) Register(r *chi.Mux) {
 func (v ViewHandler) IndexPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content/Type", "text/html; charset=utf-8")
 
-	var userName string
-	userName = v.sm.GetString(r.Context(), "username")
 
-	fmt.Println("username", userName)
+	userCookie, _ := r.Cookie("username")
 
+    var userName string
 
-	data := map[string]interface{}{
-		"Title": "Sequence Web",
-		"UserName": userName,
+	if userCookie != nil {
+        userName = userCookie.Value
 	}
 
-	err := v.Views.ExecuteTemplate(w, "index", "main", data)
+    data := map[string]interface{}{
+        "Title": "Sequence Web",
+        "Username": userName,
+    }
+
+    err := v.Views.ExecuteTemplate(w, "index", "main", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 func (v ViewHandler) CreateLobbyPage(w http.ResponseWriter, r *http.Request) {
-    username := v.sm.GetString(r.Context(), "username")
+	username := v.sm.GetString(r.Context(), "username")
 
-    fmt.Println("username", username)
+	fmt.Println("username", username)
 
 	w.Header().Set("Content/Type", "text/html; charset=utf-8")
 

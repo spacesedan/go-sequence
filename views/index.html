@@ -9,7 +9,7 @@
                 <div class="flex flex-col justify-center items-center">
                     {{ if .Username }}
                     <h4 id="generated_username" class="my-1 cursor-copy hover:bg-gray-100 px-1 py-0.5">
-                        {{ .UserName }}
+                        {{ .Username }}
                     </h4>
                     {{ else }}
                     <button id="generate-btn" hx-get="/lobby/generate_username" hx-target="#generated_username">

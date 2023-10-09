@@ -13,7 +13,9 @@ require (
 )
 
 require (
+	github.com/alexedwards/scs/redisstore v0.0.0-20230902070821-95fa2ac9d520 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/gomodule/redigo v1.8.9 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect

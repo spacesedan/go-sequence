@@ -12,10 +12,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alexedwards/scs/redisstore"
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
+	"github.com/gomodule/redigo/redis"
+	"github.com/spacesedan/go-sequence/cmd/internal"
 	"github.com/spacesedan/go-sequence/internal/handlers"
 	"github.com/spacesedan/go-sequence/internal/lobby"
+	"github.com/spacesedan/go-sequence/internal/services"
 )
 
 func init() {
@@ -38,11 +42,17 @@ func main() {
 type ServerConfig struct {
 	address string
 	logger  *slog.Logger
+    redisPool *redis.Pool
 }
 
 func run() (<-chan error, error) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	logger.Info("Logger Active")
+
+	redisPool, err := internal.NewRedis()
+	if err != nil {
+		return nil, services.WrapErrorf(err, services.ErrorCodeUnknown, "internal.NewRedis")
+	}
 
 	errC := make(chan error, 1)
 
@@ -54,6 +64,7 @@ func run() (<-chan error, error) {
 	serverConfig := ServerConfig{
 		address: ":42069",
 		logger:  logger,
+        redisPool: redisPool,
 	}
 
 	srv, _ := newServer(serverConfig)
@@ -93,16 +104,16 @@ func run() (<-chan error, error) {
 func newServer(sc ServerConfig) (*http.Server, error) {
 	r := chi.NewRouter()
 
-    sessionManager := scs.New()
-    sessionManager.Lifetime = 24 * time.Hour
+	sessionManager := scs.New()
+    sessionManager.Store = redisstore.New(sc.redisPool)
+	sessionManager.Lifetime = 24 * time.Hour
 
 	// start services
-    lm := lobby.NewLobbyManager(sc.logger)
+	lm := lobby.NewLobbyManager(sc.logger)
 
 	// Register handlers
-    handlers.NewLobbyHandler(lm, sc.logger, sessionManager).Register(r)
-    handlers.NewViewHandler(sessionManager).Register(r)
-
+	handlers.NewLobbyHandler(lm, sc.logger, sessionManager).Register(r)
+	handlers.NewViewHandler(sessionManager).Register(r)
 
 	// handler static files
 	fs := http.FileServer(http.Dir("assets"))

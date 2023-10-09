@@ -1,25 +1,35 @@
-<main class="pt-6 px-6 pb-24 bg-blue-900">
-    <div class="bg-white min-h-full rounded-lg p-12">
-        <h1 class="font-mono text-5xl text-black font-black">Sequence</h1>
+<main class="bg-blue-700 min-h-screen px-12 pt-12 pb-24">
 
-        <!---  Render the board  --->
-        {{ if .Cells }}
-        <div class="grid grid-cols-10 grid-rows-10 gap-3">
-            {{ range .Cells }}
-            {{ if .IsCorner }}
-            <img src="/static/images/cards/1J.svg" alt="Corner">
-            {{ else }}
-            <div class="relative">
-                <!--- This is how a chip would look like once a player makes a move --->
-                <!---<div class="absolute z-10 border-4 border-black shadow-md rounded-full h-20 w-20 left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-700 "></div>--->
-                <img class="absolute z-0 object-cover w-full h-full" id="board-cell-{{ .X }}-{{ .Y }}"
-                    data-position-x="{{ .X }}" data-position-y="{{ .Y }}"
-                    src="/static/images/cards/{{ .Type }}_{{ .Suit }}.svg" alt="{{ .Type }}_{{ .Suit }}">
+    <div class="bg-white h-[90vh] rounded-lg p-12">
+        <div class="flex h-full flex-col justify-center items-center p-4 gap-y-2 font-mono">
+            <div class="border-4 border-blue-700  p-5 rounded-md ">
+                <h1 class="font-mono text-5xl text-black font-black lowercase mb-5">go-Sequence</h1>
 
+                <!-- Username generation-->
+                <div class="flex flex-col justify-center items-center">
+                    <button
+                        id="generate-btn"
+                        hx-get="/lobby/generate_username"
+                        hx-target="#generated_username">
+
+                        Generate a random user name
+                    </button>
+                    <h4 id="generated_username" class="my-1 cursor-copy hover:bg-gray-100 px-1 py-0.5"></h4>
+                </div>
+                <!-- Lobby Options-->
+                <div class="flex gap-5">
+                    <a href="/lobby-create"
+                        class="bg-white px-3 py-2 rounded-xl hover:bg-blue-700 hover:text-white transition duration-200 hover:rounded-md ease-linear">
+                        Create lobby
+                    </a>
+                    <button
+                        class="bg-white px-3 py-2 rounded-xl hover:bg-blue-700 hover:text-white transition duration-200 hover:rounded-md ease-linear">
+                        Join lobby
+                    </button>
+                </div>
             </div>
-            {{ end }}
-            {{ end }}
         </div>
-        {{ end }}
     </div>
+
+    <script src="/static/js/index.js"></script>
 </main>

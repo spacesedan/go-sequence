@@ -120,7 +120,7 @@ func (lm *LobbyManager) CreateLobby(s Settings, response WsJsonResponse) string 
 
 	lm.Lobbies[lobbyId] = newLobby
 
-	response.Message = fmt.Sprintf(`<a id="lobby_link" href="/lobby/%s">Go to lobby</a>`, lobbyId)
+	response.Message = fmt.Sprintf(`<script id="lobby_link">window.location.href="/lobby/%s"</script>`, lobbyId)
 
 	for client := range lm.Clients {
 		if client == response.CurrentConn {

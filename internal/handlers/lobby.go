@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 
+	"github.com/Pallinder/go-randomdata"
+	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	"github.com/spacesedan/go-sequence/internal/lobby"
@@ -20,19 +23,22 @@ var upgrader = websocket.Upgrader{
 
 type LobbyHandler struct {
 	LobbyManager *lobby.LobbyManager
+	sm           *scs.SessionManager
 	logger       *slog.Logger
 }
 
-func NewLobbyHandler(lm *lobby.LobbyManager, l *slog.Logger) *LobbyHandler {
+func NewLobbyHandler(lm *lobby.LobbyManager, l *slog.Logger, sm *scs.SessionManager) *LobbyHandler {
 	go lm.ListenToWsChannel()
 	return &LobbyHandler{
 		LobbyManager: lm,
 		logger:       l,
+		sm:           sm,
 	}
 }
 
 func (lh *LobbyHandler) Register(m *chi.Mux) {
 	m.HandleFunc("/lobby/ws", lh.Serve)
+	m.Get("/lobby/generate_username", lh.GenerateUsername)
 }
 
 type Task struct {
@@ -70,4 +76,14 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	lm.LobbyManager.Clients[conn] = true
 
 	go lm.LobbyManager.ListenForWs(&conn)
+}
+
+func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request) {
+	randomName := randomdata.SillyName()
+	randomNumber := randomdata.Number(42069)
+
+	lm.sm.Put(r.Context(), "username", fmt.Sprintf("%d%s", randomNumber, randomName))
+	msg := lm.sm.GetString(r.Context(), "username")
+
+	render.Text(w, http.StatusOK, msg)
 }

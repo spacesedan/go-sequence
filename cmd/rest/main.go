@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/spacesedan/go-sequence/internal/handlers"
 	"github.com/spacesedan/go-sequence/internal/lobby"
@@ -92,12 +93,15 @@ func run() (<-chan error, error) {
 func newServer(sc ServerConfig) (*http.Server, error) {
 	r := chi.NewRouter()
 
+    sessionManager := scs.New()
+    sessionManager.Lifetime = 24 * time.Hour
+
 	// start services
     lm := lobby.NewLobbyManager(sc.logger)
 
 	// Register handlers
-    handlers.NewLobbyHandler(lm, sc.logger).Register(r)
-    handlers.NewViewHandler().Register(r)
+    handlers.NewLobbyHandler(lm, sc.logger, sessionManager).Register(r)
+    handlers.NewViewHandler(sessionManager).Register(r)
 
 
 	// handler static files
@@ -105,7 +109,7 @@ func newServer(sc ServerConfig) (*http.Server, error) {
 	r.Handle("/static/*", http.StripPrefix("/static/", fs))
 
 	return &http.Server{
-		Handler:           r,
+		Handler:           sessionManager.LoadAndSave(r),
 		Addr:              sc.address,
 		ReadTimeout:       1 * time.Second,
 		WriteTimeout:      1 * time.Second,

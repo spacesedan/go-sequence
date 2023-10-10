@@ -37,8 +37,11 @@ func NewLobbyHandler(lm *lobby.LobbyManager, l *slog.Logger, sm *scs.SessionMana
 }
 
 func (lh *LobbyHandler) Register(m *chi.Mux) {
-	m.HandleFunc("/lobby/ws", lh.Serve)
-	m.Get("/lobby/generate_username", lh.GenerateUsername)
+	m.Route("/lobby", func(r chi.Router) {
+		r.HandleFunc("/ws", lh.Serve)
+		r.Get("/generate_username", lh.GenerateUsername)
+		r.Post("/create_lobby", lh.CreateGameLobby)
+	})
 }
 
 type Task struct {
@@ -78,28 +81,45 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	go lm.LobbyManager.ListenForWs(&conn)
 }
 
+func (lm *LobbyHandler) CreateGameLobby(w http.ResponseWriter, r *http.Request) {
+
+	// get the settings
+	numberOfPlayers := r.FormValue("num_of_players")
+	maxHandSize := r.FormValue("max_hand_size")
+
+	// create the lobby
+	lobbyId :=lm.LobbyManager.CreateLobby(lobby.Settings{
+		NumOfPlayers: numberOfPlayers,
+		MaxHandSize: maxHandSize,
+	})
+
+
+	// Redirect to the lobby page after it has been created
+	w.Header().Set("HX-Redirect", fmt.Sprintf("/lobby/%s", lobbyId))
+
+}
+
 // GenerateUsername generates a username and stores the value in the session.
 func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request) {
 	randomName := randomdata.SillyName()
 	randomNumber := randomdata.Number(42069)
 
-
 	// construct the username
 	userName := fmt.Sprintf("%d%s", randomNumber, randomName)
 
-    cookie :=http.Cookie{
-        Name: "username",
-        Value: userName,
-        Path: "/",
-        MaxAge: 3600,
-        HttpOnly: true,
-        Secure: true,
-        SameSite: http.SameSiteNoneMode,
-    }
+	cookie := http.Cookie{
+		Name:     "username",
+		Value:    userName,
+		Path:     "/",
+		MaxAge:   3600,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	}
 
-    http.SetCookie(w, &cookie)
+	http.SetCookie(w, &cookie)
 	// add the username to the session
-    lm.sm.Put(r.Context(), fmt.Sprintf("username:%s", userName), userName)
+	lm.sm.Put(r.Context(), fmt.Sprintf("username:%s", userName), userName)
 
 	// send the response back to the client
 	render.Text(w, http.StatusOK, userName)

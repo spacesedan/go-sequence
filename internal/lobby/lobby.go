@@ -49,14 +49,6 @@ func (lm *LobbyManager) ListenToWsChannel() {
 		case "create_lobby":
 			lm.logger.Info("Creating new lobby")
 
-			response.CurrentConn = e.Conn
-			response.SkipSender = false
-
-			lobbyId := lm.CreateLobby(e.Settings, response)
-
-			lm.logger.Info("Lobby created", slog.String("lobby id", lobbyId))
-
-			fmt.Println(len(lm.Clients))
 		case "join_lobby":
 			lm.logger.Info("Joining lobby", slog.String("lobby_id", e.LobbyID))
 			response.LobbyID = e.LobbyID
@@ -108,7 +100,7 @@ func generateUniqueLobbyId() string {
 	return string(result)
 }
 
-func (lm *LobbyManager) CreateLobby(s Settings, response WsJsonResponse) string {
+func (lm *LobbyManager) CreateLobby(s Settings) string {
 	lobbyId := generateUniqueLobbyId()
 
 	newLobby := &GameLobby{
@@ -120,13 +112,7 @@ func (lm *LobbyManager) CreateLobby(s Settings, response WsJsonResponse) string 
 
 	lm.Lobbies[lobbyId] = newLobby
 
-	response.Message = fmt.Sprintf(`<script id="lobby_link">window.location.href="/lobby/%s"</script>`, lobbyId)
-
-	for client := range lm.Clients {
-		if client == response.CurrentConn {
-			client.Conn.WriteMessage(websocket.TextMessage, []byte(response.Message))
-		}
-	}
+	fmt.Println("number of lobbies", len(lm.Lobbies))
 
 	return lobbyId
 }

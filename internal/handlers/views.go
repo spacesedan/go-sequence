@@ -92,7 +92,6 @@ func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-
 	lobbyID := chi.URLParam(r, "lobbyID")
 
 	data := map[string]interface{}{

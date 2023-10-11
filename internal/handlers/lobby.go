@@ -41,6 +41,11 @@ func (lh *LobbyHandler) Register(m *chi.Mux) {
 		r.HandleFunc("/ws", lh.Serve)
 		r.Get("/generate_username", lh.GenerateUsername)
 		r.Post("/create_lobby", lh.CreateGameLobby)
+
+		lobbyHTMXGroup := r.Group(nil)
+		lobbyHTMXGroup.Route("/view", func(r chi.Router) {
+			r.Get("/toast", lh.PromptUserToGenerateUsername)
+		})
 	})
 }
 
@@ -88,11 +93,10 @@ func (lm *LobbyHandler) CreateGameLobby(w http.ResponseWriter, r *http.Request) 
 	maxHandSize := r.FormValue("max_hand_size")
 
 	// create the lobby
-	lobbyId :=lm.LobbyManager.CreateLobby(lobby.Settings{
+	lobbyId := lm.LobbyManager.CreateLobby(lobby.Settings{
 		NumOfPlayers: numberOfPlayers,
-		MaxHandSize: maxHandSize,
+		MaxHandSize:  maxHandSize,
 	})
-
 
 	// Redirect to the lobby page after it has been created
 	w.Header().Set("HX-Redirect", fmt.Sprintf("/lobby/%s", lobbyId))
@@ -121,6 +125,24 @@ func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request)
 	// add the username to the session
 	lm.sm.Put(r.Context(), fmt.Sprintf("username:%s", userName), userName)
 
+	w.Header().Set("HX-Redirect", "/")
+
 	// send the response back to the client
-	render.Text(w, http.StatusOK, userName)
+	render.Text(w, http.StatusSeeOther, "")
+}
+
+func (lm *LobbyHandler) PromptUserToGenerateUsername(w http.ResponseWriter, r *http.Request) {
+	html := `
+    <div id="modal" _="on closeModal add .closing then wait for animationend then remove me">
+	    <div _="on load wait 5s then trigger closeModal"></div>
+        //<div class="modal-underlay" _="on click trigger closeModal"></div>
+	    <div class="modal-content text-sm font-mono">
+	    	<h1 class="font-bold text-md">Generate a username first.</h1>
+            <p> this site works better when you have a username.</p>
+            <p> click on the "generate username" button to get yours</p>
+	    </div>
+    </div>`
+
+	render.Text(w, http.StatusOK, html)
+
 }

@@ -42,6 +42,8 @@ func (v ViewHandler) Register(r *chi.Mux) {
 	lobbyGroup.Get(fmt.Sprintf("/lobby/{lobbyID:%s}", lobbyIdRegex), v.LobbyPage)
 }
 
+
+
 func (v ViewHandler) IndexPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content/Type", "text/html; charset=utf-8")
 

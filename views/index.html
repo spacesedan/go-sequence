@@ -1,4 +1,4 @@
-<main class="bg-blue-700 min-h-screen px-12 pt-12 pb-24">
+<main id="main_container" class="bg-blue-700 min-h-screen px-12 pt-12 pb-24">
 
     <div class="bg-white h-[90vh] rounded-lg p-12">
         <div class="flex h-full flex-col justify-center items-center p-4 gap-y-2 font-mono">
@@ -12,20 +12,33 @@
                         {{ .Username }}
                     </h4>
                     {{ else }}
-                    <button id="generate-btn" hx-get="/lobby/generate_username" hx-target="#generated_username">
-                        Generate a random user name
+                    <button class="bg-blue-700 px-1.5 py-1 rounded-md text-white transform border-transparent border-2 hover:bg-white hover:border-blue-700 hover:text-black duration-150 ease-out" id="generate-btn" hx-get="/lobby/generate_username" hx-target="#generated_username">
+                        generate username
                     </button>
                     <h4 id="generated_username" class="my-1 cursor-copy hover:bg-gray-100 px-1 py-0.5"></h4>
 
                     {{ end }}
                 </div>
                 <!-- Lobby Options-->
+                <!--
+                        if the is no user cookie, send the request to to a
+                        different hadler that would return a toast
+                        prompting the user to generate a random name.
+                -->
                 <div class="flex gap-5">
-                    <a href="/lobby-create"
+                    <a {{ if .Username }}
+                        href="/lobby-create"
+                        {{ else }}
+                        hx-get="/lobby/view/toast" hx-target="body" hx-swap="beforeend"
+                        {{ end }}
                         class="bg-white px-3 py-2 rounded-xl hover:bg-blue-700 hover:text-white transition duration-200 hover:rounded-md ease-linear">
                         Create lobby
                     </a>
                     <button
+                        {{ if .Username }}
+                        {{ else }}
+                        hx-get="/lobby/view/toast" hx-target="body" hx-swap="beforeend"
+                        {{ end }}
                         class="bg-white px-3 py-2 rounded-xl hover:bg-blue-700 hover:text-white transition duration-200 hover:rounded-md ease-linear">
                         Join lobby
                     </button>

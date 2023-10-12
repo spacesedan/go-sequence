@@ -42,6 +42,7 @@ func (lh *LobbyHandler) Register(m *chi.Mux) {
 		r.HandleFunc("/ws", lh.Serve)
 		r.Get("/generate_username", lh.GenerateUsername)
 		r.Post("/create_lobby", lh.CreateGameLobby)
+        r.Post("/join", lh.JoinLobby)
 
 		lobbyHTMXGroup := r.Group(nil)
 		lobbyHTMXGroup.Route("/view", func(r chi.Router) {
@@ -104,6 +105,12 @@ func (lm *LobbyHandler) CreateGameLobby(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("HX-Redirect", fmt.Sprintf("/lobby/%s", lobbyId))
 
 }
+
+func (lm *LobbyHandler) JoinLobby(w http.ResponseWriter, r *http.Request) {
+    lobbyID := r.FormValue("lobby-id")
+    fmt.Println(lobbyID)
+}
+
 
 // GenerateUsername generates a username and stores the value in the session.
 func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request) {

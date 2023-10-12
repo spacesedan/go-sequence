@@ -6,10 +6,10 @@ templ Modal() {
     <div class="modal-content text-sm font-mono">
         <h6 class="font-bold mb-3">Join lobby.</h6>
         <p class="lowercase">Joining a friend? enter the lobby ID to join their game</p>
-        <form action="" id="join-lobby-form" class="mt-5">
-            <div id="lobby-id-form-group">
+        <form hx-post="/lobby/join" id="join-lobby-form" class="mt-4">
+            <div id="lobby-id-form-group" class="flex flex-col">
                 <label id="lobby-id-label" for="lobby-id"></label>
-                <input autocomplete="off"  id="lobby-id" pattern="[A-Z0-9]{4}" class="bg-gray-200 rounded-md border-2 border-gray-300 px-3 py-2" type="text" />
+                <input autocomplete="off" name="lobby-id"  id="lobby-id" class="bg-gray-200 rounded-md border-2 border-gray-300 px-3 py-2" type="text" />
             </div>
             <div class="flex gap-x-5 mt-5">
                 <button type="submit" id="join-lobby-btn" class="px-2 py-1.5 border-2 border-transparent hover:border-blue-700 rounded-md">join lobby</button>

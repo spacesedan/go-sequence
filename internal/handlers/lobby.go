@@ -42,7 +42,7 @@ func (lh *LobbyHandler) Register(m *chi.Mux) {
 		r.HandleFunc("/ws", lh.Serve)
 		r.Get("/generate_username", lh.GenerateUsername)
 		r.Post("/create_lobby", lh.CreateGameLobby)
-        r.Post("/join", lh.JoinLobby)
+		r.Post("/join", lh.JoinLobby)
 
 		lobbyHTMXGroup := r.Group(nil)
 		lobbyHTMXGroup.Route("/view", func(r chi.Router) {
@@ -107,10 +107,18 @@ func (lm *LobbyHandler) CreateGameLobby(w http.ResponseWriter, r *http.Request) 
 }
 
 func (lm *LobbyHandler) JoinLobby(w http.ResponseWriter, r *http.Request) {
-    lobbyID := r.FormValue("lobby-id")
-    fmt.Println(lobbyID)
-}
+	username, _ := getUsernameFromCookie(r)
+	lobbyID := r.FormValue("lobby-id")
 
+	err := lm.LobbyManager.JoinLobby(lobbyID, username)
+	if err != nil {
+		fmt.Println(err.Error())
+        topic := "Lobby not found"
+        content := "make sure you entered a valid lobby id"
+		partials.Toast(topic, content).Render(r.Context(), w)
+	}
+	fmt.Println(lobbyID)
+}
 
 // GenerateUsername generates a username and stores the value in the session.
 func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request) {
@@ -141,8 +149,10 @@ func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request)
 }
 
 func (lm *LobbyHandler) PromptUserToGenerateUsername(w http.ResponseWriter, r *http.Request) {
+	topic := "Generate a username first."
+	content := `this site work better when you have a username click on "generate username" to get yours`
 
-	partials.Toast().Render(r.Context(), w)
+	partials.Toast(topic, content).Render(r.Context(), w)
 
 }
 

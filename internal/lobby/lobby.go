@@ -1,6 +1,7 @@
 package lobby
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -42,7 +43,7 @@ func NewLobbyManager(l *slog.Logger) *LobbyManager {
 }
 
 func (lm *LobbyManager) ListenToWsChannel() {
-	var response WsJsonResponse
+	// var response WsJsonResponse
 	for {
 		e := <-lm.WsChan
 		switch e.Action {
@@ -50,14 +51,6 @@ func (lm *LobbyManager) ListenToWsChannel() {
 			lm.logger.Info("Creating new lobby")
 
 		case "join_lobby":
-			lm.logger.Info("Joining lobby", slog.String("lobby_id", e.LobbyID))
-			response.LobbyID = e.LobbyID
-			response.CurrentConn = e.Conn
-			lm.JoinLobby(response)
-			if lm.Lobbies[response.LobbyID] != nil {
-				fmt.Println(lm.Lobbies[response.LobbyID])
-				fmt.Println(len(lm.Lobbies[response.LobbyID].Clients))
-			}
 
 		case "leave_lobby":
 			lm.logger.Info("Leaving lobby")
@@ -117,13 +110,10 @@ func (lm *LobbyManager) CreateLobby(s Settings) string {
 	return lobbyId
 }
 
-func (lm *LobbyManager) JoinLobby(response WsJsonResponse) {
-	userId := generateUniqueLobbyId()
-
-	for k, l := range lm.Lobbies {
-		if response.LobbyID == k {
-			l.Clients[userId] = response.CurrentConn
-		}
-
+func (lm *LobbyManager) JoinLobby(lobbyId, username string) error {
+    fmt.Println(username)
+	if _, ok := lm.Lobbies[lobbyId]; !ok {
+		return errors.New("could not join; lobby not found")
 	}
+	return nil
 }

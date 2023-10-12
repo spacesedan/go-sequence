@@ -22,7 +22,7 @@ func Modal() templ.Component {
 			var_1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		_, err = templBuffer.WriteString("<div id=\"modal\"><div id=\"modal-underlay\" class=\"modal-underlay\"></div><div class=\"modal-content text-sm font-mono\"><h6 class=\"font-bold\">")
+		_, err = templBuffer.WriteString("<div id=\"modal\"><div id=\"modal-underlay\" class=\"modal-underlay\"></div><div class=\"modal-content text-sm font-mono\"><h6 class=\"font-bold mb-3\">")
 		if err != nil {
 			return err
 		}
@@ -40,20 +40,20 @@ func Modal() templ.Component {
 		if err != nil {
 			return err
 		}
-		_, err = templBuffer.WriteString("</p><form action=\"\" class=\"mt-5\"><div id=\"lobby-id-form-group\"><label for=\"lobby-id\"></label><input id=\"lobby-id\" pattern=\"[A-Z0-9]{4}\" class=\"bg-gray-200 rounded-md border-2 border-gray-300 px-3 py-2\" type=\"text\"></div><div class=\"flex gap-x-5 mt-5\"><button id=\"modal-btn\">")
+		_, err = templBuffer.WriteString("</p><form action=\"\" id=\"join-lobby-form\" class=\"mt-5\"><div id=\"lobby-id-form-group\"><label id=\"lobby-id-label\" for=\"lobby-id\"></label><input autocomplete=\"off\" id=\"lobby-id\" pattern=\"[A-Z0-9]{4}\" class=\"bg-gray-200 rounded-md border-2 border-gray-300 px-3 py-2\" type=\"text\"></div><div class=\"flex gap-x-5 mt-5\"><button type=\"submit\" id=\"join-lobby-btn\" class=\"px-2 py-1.5 border-2 border-transparent hover:border-blue-700 rounded-md\">")
 		if err != nil {
 			return err
 		}
-		var_4 := `close modal`
+		var_4 := `join lobby`
 		_, err = templBuffer.WriteString(var_4)
 		if err != nil {
 			return err
 		}
-		_, err = templBuffer.WriteString("</button><button>")
+		_, err = templBuffer.WriteString("</button><button type=\"button\" id=\"modal-btn\" class=\"px-2 py-1.5 border-2 border-transparent hover:border-red-500 rounded-md\">")
 		if err != nil {
 			return err
 		}
-		var_5 := `join lobby`
+		var_5 := `close modal`
 		_, err = templBuffer.WriteString(var_5)
 		if err != nil {
 			return err

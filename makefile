@@ -2,5 +2,19 @@ build:
 	@go build  -o bin/server ./cmd/rest/main.go
 	@./bin/server
 
+generate:
+	air -c .templ.toml
+
 watch-tw:
-	npx tailwindcss -i ./assets/css/input.css -o ./assets/css/output.css --watch >> /dev/null
+	npx tailwindcss -i ./src/input.css -o ./src/output.css --watch
+
+watch-bundle:
+	npm run build:watch
+
+dev:
+	npm run dev
+
+bundle:
+	npm run build
+
+watch: watch-tw watch-bundle

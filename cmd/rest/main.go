@@ -40,9 +40,9 @@ func main() {
 }
 
 type ServerConfig struct {
-	address string
-	logger  *slog.Logger
-    redisPool *redis.Pool
+	address   string
+	logger    *slog.Logger
+	redisPool *redis.Pool
 }
 
 func run() (<-chan error, error) {
@@ -62,9 +62,9 @@ func run() (<-chan error, error) {
 		syscall.SIGKILL)
 
 	serverConfig := ServerConfig{
-		address: ":42069",
-		logger:  logger,
-        redisPool: redisPool,
+		address:   ":42069",
+		logger:    logger,
+		redisPool: redisPool,
 	}
 
 	srv, _ := newServer(serverConfig)
@@ -103,9 +103,8 @@ func run() (<-chan error, error) {
 
 func newServer(sc ServerConfig) (*http.Server, error) {
 	r := chi.NewRouter()
-
 	sessionManager := scs.New()
-    sessionManager.Store = redisstore.New(sc.redisPool)
+	sessionManager.Store = redisstore.New(sc.redisPool)
 	sessionManager.Lifetime = 24 * time.Hour
 
 	// start services
@@ -117,7 +116,9 @@ func newServer(sc ServerConfig) (*http.Server, error) {
 
 	// handler static files
 	fs := http.FileServer(http.Dir("assets"))
+	bundle := http.FileServer(http.Dir("dist"))
 	r.Handle("/static/*", http.StripPrefix("/static/", fs))
+	r.Handle("/bundle/*", http.StripPrefix("/bundle/", bundle))
 
 	return &http.Server{
 		Handler:           sessionManager.LoadAndSave(r),

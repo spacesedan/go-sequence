@@ -1,0 +1,21 @@
+package partials
+
+templ Modal() {
+<div id="modal">
+    <div id="modal-underlay" class="modal-underlay"></div>
+    <div class="modal-content text-sm font-mono">
+        <h6 class="font-bold">Join lobby.</h6>
+        <p class="lowercase">Joining a friend? enter the lobby ID to join their game</p>
+        <form action="" class="mt-5">
+            <div id="lobby-id-form-group">
+                <label for="lobby-id"></label>
+                <input id="lobby-id" pattern="[A-Z0-9]{4}" class="bg-gray-200 rounded-md border-2 border-gray-300 px-3 py-2" type="text" />
+            </div>
+            <div class="flex gap-x-5 mt-5">
+                <button id="modal-btn">close modal</button>
+                <button>join lobby</button>
+            </div>
+        </form>
+    </div>
+</div>
+}

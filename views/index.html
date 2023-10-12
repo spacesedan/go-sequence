@@ -12,33 +12,24 @@
                         {{ .Username }}
                     </h4>
                     {{ else }}
-                    <button class="bg-blue-700 px-1.5 py-1 rounded-md text-white transform border-transparent border-2 hover:bg-white hover:border-blue-700 hover:text-black duration-150 ease-out" id="generate-btn" hx-get="/lobby/generate_username" hx-target="#generated_username">
+                    <button
+                        class="bg-blue-700 px-1.5 py-1 rounded-md text-white transform border-transparent border-2 hover:bg-white hover:border-blue-700 hover:text-black duration-150 ease-out"
+                        id="generate-btn" hx-get="/lobby/generate_username" hx-target="#generated_username">
                         generate username
                     </button>
                     <h4 id="generated_username" class="my-1 cursor-copy hover:bg-gray-100 px-1 py-0.5"></h4>
 
                     {{ end }}
                 </div>
-                <!-- Lobby Options-->
-                <!--
-                        if the is no user cookie, send the request to to a
-                        different hadler that would return a toast
-                        prompting the user to generate a random name.
-                -->
                 <div class="flex gap-5">
-                    <a {{ if .Username }}
-                        href="/lobby-create"
-                        {{ else }}
-                        hx-get="/lobby/view/toast" hx-target="body" hx-swap="beforeend"
-                        {{ end }}
+                    <a {{ if .Username }} href="/lobby-create" {{ else }} hx-get="/lobby/view/toast/prompt-username"
+                        hx-target="body" hx-swap="beforeend" {{ end }}
                         class="bg-white px-3 py-2 rounded-xl hover:bg-blue-700 hover:text-white transition duration-200 hover:rounded-md ease-linear">
                         Create lobby
                     </a>
-                    <button
-                        {{ if .Username }}
-                        {{ else }}
-                        hx-get="/lobby/view/toast" hx-target="body" hx-swap="beforeend"
-                        {{ end }}
+                    <button {{ if .Username }} hx-get="/lobby/view/modal/join-lobby" hx-target="body"
+                        hx-swap="beforeend" {{ else }} hx-get="/lobby/view/toast/prompt-username" hx-target="body"
+                        hx-swap="beforeend" {{ end }}
                         class="bg-white px-3 py-2 rounded-xl hover:bg-blue-700 hover:text-white transition duration-200 hover:rounded-md ease-linear">
                         Join lobby
                     </button>
@@ -47,5 +38,5 @@
         </div>
     </div>
 
-    <script src="/static/js/index.js"></script>
+    <script src="/bundle/js/index.js"></script>
 </main>

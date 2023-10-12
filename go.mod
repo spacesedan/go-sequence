@@ -13,6 +13,7 @@ require (
 )
 
 require (
+	github.com/a-h/templ v0.2.364 // indirect
 	github.com/alexedwards/scs/redisstore v0.0.0-20230902070821-95fa2ac9d520 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gomodule/redigo v1.8.9 // indirect

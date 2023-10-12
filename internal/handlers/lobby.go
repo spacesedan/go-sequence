@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	"github.com/spacesedan/go-sequence/internal/lobby"
+	"github.com/spacesedan/go-sequence/internal/partials"
 )
 
 var upgrader = websocket.Upgrader{
@@ -44,7 +45,8 @@ func (lh *LobbyHandler) Register(m *chi.Mux) {
 
 		lobbyHTMXGroup := r.Group(nil)
 		lobbyHTMXGroup.Route("/view", func(r chi.Router) {
-			r.Get("/toast", lh.PromptUserToGenerateUsername)
+			r.Get("/toast/prompt-username", lh.PromptUserToGenerateUsername)
+			r.Get("/modal/join-lobby", lh.SendJoinLobbyModal)
 		})
 	})
 }
@@ -132,17 +134,12 @@ func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request)
 }
 
 func (lm *LobbyHandler) PromptUserToGenerateUsername(w http.ResponseWriter, r *http.Request) {
-	html := `
-    <div id="modal" _="on closeModal add .closing then wait for animationend then remove me">
-	    <div _="on load wait 5s then trigger closeModal"></div>
-        //<div class="modal-underlay" _="on click trigger closeModal"></div>
-	    <div class="modal-content text-sm font-mono">
-	    	<h1 class="font-bold text-md">Generate a username first.</h1>
-            <p> this site works better when you have a username.</p>
-            <p> click on the "generate username" button to get yours</p>
-	    </div>
-    </div>`
 
-	render.Text(w, http.StatusOK, html)
+	partials.Toast().Render(r.Context(), w)
+
+}
+
+func (lm *LobbyHandler) SendJoinLobbyModal(w http.ResponseWriter, r *http.Request) {
+	partials.Modal().Render(r.Context(), w)
 
 }

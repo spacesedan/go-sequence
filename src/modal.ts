@@ -33,19 +33,37 @@ htmx.onLoad(function(content) {
     lobbyForm?.addEventListener('submit', function(e) {
         e.preventDefault()
 
-        if (lobbyIdInput?.value == "") {
-            lobbyIdInput.classList.remove("border-gray-300")
-            lobbyIdInput.style.borderColor = 'red'
-            lobbyIdLabel!.innerText = "no lobby id"
-            return
+        switch (true) {
+            case !lobbyIdInput?.value:
+                lobbyIdInput!.classList.remove("border-gray-300")
+                lobbyIdInput!.style.borderColor = 'red'
+                lobbyIdLabel!.innerText = "no lobby id"
+                lobbyIdInput!.innerText = ""
+                break;
+            case !lobbyIdInput?.value.match(lobbyIdRegex):
+                lobbyIdInput!.classList.remove("border-gray-300")
+                lobbyIdInput!.style.borderColor = 'red'
+                lobbyIdLabel!.innerText = "invalid lobby id"
+                lobbyIdInput!.innerText = ""
+                break
+            default:
+                lobbyIdInput!.innerText = ""
+                break;
         }
 
-        if (!lobbyIdInput?.value.match(lobbyIdRegex)) {
-            lobbyIdInput!.classList.remove("border-gray-300")
-            lobbyIdInput!.style.borderColor = 'red'
-            lobbyIdLabel!.innerText = "invalid lobby id"
-            return
-        }
+        // if (lobbyIdInput?.value == "") {
+        //     return
+        // }
+        //
+        // if (!lobbyIdInput?.value.match(lobbyIdRegex)) {
+        //     lobbyIdInput!.classList.remove("border-gray-300")
+        //     lobbyIdInput!.style.borderColor = 'red'
+        //     lobbyIdLabel!.innerText = "invalid lobby id"
+        //     lobbyIdInput!.innerText = ""
+        //     return
+        // }
+
+
 
     })
 })

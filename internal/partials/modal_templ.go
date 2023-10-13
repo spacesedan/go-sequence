@@ -40,7 +40,7 @@ func Modal() templ.Component {
 		if err != nil {
 			return err
 		}
-		_, err = templBuffer.WriteString("</p><form hx-post=\"/lobby/join\" id=\"join-lobby-form\" class=\"mt-4\"><div id=\"lobby-id-form-group\" class=\"flex flex-col\"><label id=\"lobby-id-label\" for=\"lobby-id\"></label><input autocomplete=\"off\" name=\"lobby-id\" id=\"lobby-id\" class=\"bg-gray-200 rounded-md border-2 border-gray-300 px-3 py-2\" type=\"text\"></div><div class=\"flex gap-x-5 mt-5\"><button type=\"submit\" id=\"join-lobby-btn\" class=\"px-2 py-1.5 border-2 border-transparent hover:border-blue-700 rounded-md\">")
+		_, err = templBuffer.WriteString("</p><form hx-post=\"/lobby/join\" hx-target=\"body\" hx-swap=\"beforeend\" id=\"join-lobby-form\" class=\"mt-4\"><div id=\"lobby-id-form-group\" class=\"flex flex-col\"><label id=\"lobby-id-label\" for=\"lobby-id\"></label><input autocomplete=\"off\" name=\"lobby-id\" id=\"lobby-id\" class=\"bg-gray-200 rounded-md border-2 border-gray-300 px-3 py-2\" type=\"text\"></div><div class=\"flex gap-x-5 mt-5\"><button id=\"join-lobby-btn\" class=\"px-2 py-1.5 border-2 border-transparent hover:border-blue-700 rounded-md\">")
 		if err != nil {
 			return err
 		}

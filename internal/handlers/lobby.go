@@ -116,8 +116,12 @@ func (lm *LobbyHandler) JoinLobby(w http.ResponseWriter, r *http.Request) {
         topic := "Lobby not found"
         content := "make sure you entered a valid lobby id"
 		partials.Toast(topic, content).Render(r.Context(), w)
+        return
 	}
-	fmt.Println(lobbyID)
+
+    w.Header().Set("HX-Redirect", fmt.Sprintf("/lobby/%v", lobbyID))
+    render.Text(w, http.StatusSeeOther, "")
+
 }
 
 // GenerateUsername generates a username and stores the value in the session.

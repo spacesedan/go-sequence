@@ -9,7 +9,7 @@ import "context"
 import "io"
 import "bytes"
 
-func Toast(topic string, content string) templ.Component {
+func ToastComponent(topic string, content string) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) (err error) {
 		templBuffer, templIsBuffer := w.(*bytes.Buffer)
 		if !templIsBuffer {

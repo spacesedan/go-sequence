@@ -37,6 +37,7 @@
     position: absolute;
     top: 0;
     right: 0;
+    margin-top: 5vh;
 
 	/* Sizing for visible dialog */
 	width:80%;

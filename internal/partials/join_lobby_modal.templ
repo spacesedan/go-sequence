@@ -1,12 +1,12 @@
 package partials
 
-templ Modal() {
+templ JoinLobbyModal() {
 <div id="modal">
     <div id="modal-underlay" class="modal-underlay"></div>
     <div class="modal-content text-sm font-mono">
         <h6 class="font-bold mb-3">Join lobby.</h6>
         <p class="lowercase">Joining a friend? enter the lobby ID to join their game</p>
-        <form hx-post="/lobby/join" hx-target="body" hx-swap="beforeend" id="join-lobby-form" class="mt-4">
+        <form hx-trigger="submit" id="join-lobby-form" class="mt-5">
             <div id="lobby-id-form-group" class="flex flex-col">
                 <label id="lobby-id-label" for="lobby-id"></label>
                 <input autocomplete="off" name="lobby-id" id="lobby-id"

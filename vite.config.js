@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
     server: {
         proxy: {
-            '/' : 'http://localhost:42069/',
+            '/': 'http://localhost:42069/',
         }
     },
     css: {
@@ -23,8 +23,10 @@ export default defineConfig({
             },
             // specify your input files here, as stated in Vite config https://vitejs.dev/config/#build-rollupoptions
             input: {
-                mainLayout: resolve(__dirname, 'src/main_layout.ts'),
+                main_layout: resolve(__dirname, 'src/main_layout.ts'),
                 index: resolve(__dirname, 'src/index.ts'),
+                create_lobby: resolve(__dirname, 'src/create_lobby.ts'),
+                lobby: resolve(__dirname, 'src/lobby.ts')
             }
         }
     }

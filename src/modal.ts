@@ -30,25 +30,29 @@ htmx.onLoad(function(content) {
         closeModal()
     })
 
-    lobbyForm?.addEventListener('submit', function(e) {
-        e.preventDefault()
+    lobbyForm?.addEventListener('submit', function() {
 
         switch (true) {
             case !lobbyIdInput?.value:
+                console.log(1);
                 lobbyIdInput!.classList.remove("border-gray-300")
                 lobbyIdInput!.style.borderColor = 'red'
                 lobbyIdLabel!.innerText = "no lobby id"
                 lobbyIdInput!.innerText = ""
-                break;
+                return
             case !lobbyIdInput?.value.match(lobbyIdRegex):
+                console.log(2);
                 lobbyIdInput!.classList.remove("border-gray-300")
                 lobbyIdInput!.style.borderColor = 'red'
                 lobbyIdLabel!.innerText = "invalid lobby id"
                 lobbyIdInput!.innerText = ""
-                break
+                return
             default:
+                //@ts-ignore
+                htmx.ajax('POST', `/lobby/join?lobbyId=${lobbyIdInput?.innerText}`, { target: '#body', swap: 'beforeend' })
                 lobbyIdInput!.innerText = ""
-                break;
+                closeModal()
+                return
         }
 
         // if (lobbyIdInput?.value == "") {

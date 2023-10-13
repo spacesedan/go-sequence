@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/Pallinder/go-randomdata"
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
@@ -41,7 +40,7 @@ func (lh *LobbyHandler) Register(m *chi.Mux) {
 	m.Route("/lobby", func(r chi.Router) {
 		r.HandleFunc("/ws", lh.Serve)
 		r.Get("/generate_username", lh.GenerateUsername)
-		r.Post("/create_lobby", lh.CreateGameLobby)
+		r.Post("/create", lh.CreateGameLobby)
 		r.Post("/join", lh.JoinLobby)
 
 		lobbyHTMXGroup := r.Group(nil)
@@ -60,10 +59,8 @@ type Task struct {
 func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	lm.logger.Info("Connected to socket")
 
+	username, _ := getUsernameFromCookie(r)
 	lobbyId := r.URL.Query().Get("lobbyID")
-
-	// if i add any infomration to the url i can parse it out here and
-	// uses it however i want
 
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -84,9 +81,9 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	conn := lobby.WsConnection{Conn: ws}
-	lm.LobbyManager.Clients[conn] = true
+	lm.LobbyManager.Clients[username] = conn
 
-	go lm.LobbyManager.ListenForWs(&conn)
+	go lm.LobbyManager.ListenForWs(&conn, lobbyId, username)
 }
 
 func (lm *LobbyHandler) CreateGameLobby(w http.ResponseWriter, r *http.Request) {
@@ -110,39 +107,26 @@ func (lm *LobbyHandler) JoinLobby(w http.ResponseWriter, r *http.Request) {
 	username, _ := getUsernameFromCookie(r)
 	lobbyID := r.FormValue("lobby-id")
 
-	err := lm.LobbyManager.JoinLobby(lobbyID, username)
+	_, err := lm.LobbyManager.JoinLobby(lobbyID, username)
 	if err != nil {
 		fmt.Println(err.Error())
-        topic := "Lobby not found"
-        content := "make sure you entered a valid lobby id"
-		partials.Toast(topic, content).Render(r.Context(), w)
-        return
+		content := "make sure you entered a valid lobby id"
+		topic := "Lobby not found"
+		partials.ToastComponent(topic, content).Render(r.Context(), w)
+		return
 	}
 
-    w.Header().Set("HX-Redirect", fmt.Sprintf("/lobby/%v", lobbyID))
-    render.Text(w, http.StatusSeeOther, "")
+
+	w.Header().Set("HX-Redirect", fmt.Sprintf("/lobby/%v", lobbyID))
+	render.Text(w, http.StatusSeeOther, "")
 
 }
 
 // GenerateUsername generates a username and stores the value in the session.
 func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request) {
-	randomName := randomdata.SillyName()
-	randomNumber := randomdata.Number(42069)
+	userName, userCookie := generateUserCookie()
 
-	// construct the username
-	userName := fmt.Sprintf("%d%s", randomNumber, randomName)
-
-	cookie := http.Cookie{
-		Name:     "username",
-		Value:    userName,
-		Path:     "/",
-		MaxAge:   3600,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteNoneMode,
-	}
-
-	http.SetCookie(w, &cookie)
+	http.SetCookie(w, userCookie)
 	// add the username to the session
 	lm.sm.Put(r.Context(), fmt.Sprintf("username:%s", userName), userName)
 
@@ -155,12 +139,11 @@ func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request)
 func (lm *LobbyHandler) PromptUserToGenerateUsername(w http.ResponseWriter, r *http.Request) {
 	topic := "Generate a username first."
 	content := `this site work better when you have a username click on "generate username" to get yours`
-
-	partials.Toast(topic, content).Render(r.Context(), w)
+	partials.ToastComponent(topic, content).Render(r.Context(), w)
 
 }
 
 func (lm *LobbyHandler) SendJoinLobbyModal(w http.ResponseWriter, r *http.Request) {
-	partials.Modal().Render(r.Context(), w)
+	partials.JoinLobbyModal().Render(r.Context(), w)
 
 }

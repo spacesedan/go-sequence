@@ -1,0 +1,37 @@
+package partials
+
+templ LobbyCreatePage() {
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://unpkg.com/htmx.org@1.9.6"
+        integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni"
+        crossorigin="anonymous"></script>
+    <script src="/bundle/js/mainLayout.js"></script>
+    <link rel="stylesheet" href="/bundle/css/main_layout.css" />
+    <title>Create Lobby</title>
+</head>
+
+<body>
+    <nav id="nav_bar" class="bg-blue-700 p-12  py-3  font-mono text-3xl text-white">
+        <a href="/">Home</a>
+    </nav>
+    <main id="main_container" class="bg-blue-700 min-h-screen px-12 pt-12 pb-24">
+        <form class="bg-orange-500 p-12 flex gap-3">
+            <div class="flex flex-col mb-0.5">
+                <label for="num_of_players" class="font-black">number of players</label>
+                <input type="number" class="px-2 py-1.5 rounded-md" name="num_of_players" id="num_of_players" />
+            </div>
+            <div class="flex flex-col mb-0.5">
+                <label for="max_hand_size" class="font-black">max hand size</label>
+                <input type="number" class="px-2 py-1.5 rounded-md" name="max_hand_size" id="max_hand_size" />
+            </div>
+        </form>
+    </main>
+</body>
+
+</html>
+}

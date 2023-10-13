@@ -112,7 +112,7 @@ func newServer(sc ServerConfig) (*http.Server, error) {
 
 	// Register handlers
 	handlers.NewLobbyHandler(lm, sc.logger, sessionManager).Register(r)
-	handlers.NewViewHandler(sessionManager).Register(r)
+	handlers.NewViewHandler(sessionManager, lm).Register(r)
 
 	// handler static files
 	fs := http.FileServer(http.Dir("assets"))

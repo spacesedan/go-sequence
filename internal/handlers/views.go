@@ -7,14 +7,16 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/kataras/blocks"
+	"github.com/spacesedan/go-sequence/internal/lobby"
 )
 
 type ViewHandler struct {
-	Views *blocks.Blocks
-	sm    *scs.SessionManager
+	Views        *blocks.Blocks
+	LobbyManager *lobby.LobbyManager
+	sm           *scs.SessionManager
 }
 
-func NewViewHandler(sm *scs.SessionManager) *ViewHandler {
+func NewViewHandler(sm *scs.SessionManager, lm *lobby.LobbyManager) *ViewHandler {
 	views := blocks.New("./views").
 		Reload(true)
 
@@ -24,8 +26,9 @@ func NewViewHandler(sm *scs.SessionManager) *ViewHandler {
 	}
 
 	return &ViewHandler{
-		sm:    sm,
-		Views: views,
+		sm:           sm,
+		LobbyManager: lm,
+		Views:        views,
 	}
 }
 
@@ -41,8 +44,6 @@ func (v ViewHandler) Register(r *chi.Mux) {
 	lobbyGroup.Get("/lobby-create", v.CreateLobbyPage)
 	lobbyGroup.Get(fmt.Sprintf("/lobby/{lobbyID:%s}", lobbyIdRegex), v.LobbyPage)
 }
-
-
 
 func (v ViewHandler) IndexPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content/Type", "text/html; charset=utf-8")
@@ -68,24 +69,9 @@ func (v ViewHandler) IndexPage(w http.ResponseWriter, r *http.Request) {
 
 // CreateLobbyPage
 func (v ViewHandler) CreateLobbyPage(w http.ResponseWriter, r *http.Request) {
-	username, err := getUsernameFromCookie(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-
-	fmt.Println(username)
-
 	w.Header().Set("Content/Type", "text/html; charset=utf-8")
 
-	data := map[string]interface{}{
-		"Title": "Create a new lobby",
-		"Username": username,
-	}
-
-	err = v.Views.ExecuteTemplate(w, "create_lobby", "with_ws", data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	v.Views.ExecuteTemplate(w, "create_lobby", "main", nil)
 }
 
 func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
@@ -95,12 +81,17 @@ func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lobbyID := chi.URLParam(r, "lobbyID")
+	_, err = v.LobbyManager.JoinLobby(lobbyID, username)
+	if err != nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	go v.LobbyManager.ListenToLobbyWsChan(lobbyID)
 
 	data := map[string]interface{}{
-		"Title":   fmt.Sprintf("Lobby %s", lobbyID),
-		"LobbyID": lobbyID,
+		"Title":    fmt.Sprintf("Lobby %s", lobbyID),
+		"LobbyID":  lobbyID,
 		"Username": username,
-
 	}
 
 	err = v.Views.ExecuteTemplate(w, "lobby", "with_ws", data)

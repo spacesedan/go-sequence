@@ -624,8 +624,16 @@ video {
   height: 5rem;
 }
 
+.h-32 {
+  height: 8rem;
+}
+
 .h-\[25vh\] {
   height: 25vh;
+}
+
+.h-\[75vh\] {
+  height: 75vh;
 }
 
 .h-\[90vh\] {
@@ -634,18 +642,6 @@ video {
 
 .h-full {
   height: 100%;
-}
-
-.h-\[75vh\] {
-  height: 75vh;
-}
-
-.h-\[80vh\] {
-  height: 80vh;
-}
-
-.h-32 {
-  height: 8rem;
 }
 
 .min-h-full {
@@ -694,10 +690,6 @@ video {
   grid-template-rows: repeat(10, minmax(0, 1fr));
 }
 
-.grid-rows-2 {
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-}
-
 .grid-rows-lobby_grid {
   grid-template-rows: 5vh 1fr;
 }
@@ -743,6 +735,10 @@ video {
   row-gap: 0.5rem;
 }
 
+.rounded {
+  border-radius: 0.25rem;
+}
+
 .rounded-full {
   border-radius: 9999px;
 }
@@ -757,10 +753,6 @@ video {
 
 .rounded-xl {
   border-radius: 0.75rem;
-}
-
-.rounded {
-  border-radius: 0.25rem;
 }
 
 .rounded-b-md {
@@ -820,24 +812,9 @@ video {
   background-color: rgb(229 231 235 / var(--tw-bg-opacity));
 }
 
-.bg-green-300 {
+.bg-green-400 {
   --tw-bg-opacity: 1;
-  background-color: rgb(134 239 172 / var(--tw-bg-opacity));
-}
-
-.bg-orange-500 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(249 115 22 / var(--tw-bg-opacity));
-}
-
-.bg-red-200 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(254 202 202 / var(--tw-bg-opacity));
-}
-
-.bg-white {
-  --tw-bg-opacity: 1;
-  background-color: rgb(255 255 255 / var(--tw-bg-opacity));
+  background-color: rgb(74 222 128 / var(--tw-bg-opacity));
 }
 
 .bg-orange-300 {
@@ -845,9 +822,14 @@ video {
   background-color: rgb(253 186 116 / var(--tw-bg-opacity));
 }
 
-.bg-green-400 {
+.bg-orange-500 {
   --tw-bg-opacity: 1;
-  background-color: rgb(74 222 128 / var(--tw-bg-opacity));
+  background-color: rgb(249 115 22 / var(--tw-bg-opacity));
+}
+
+.bg-white {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 255 255 / var(--tw-bg-opacity));
 }
 
 .object-cover {
@@ -859,16 +841,16 @@ video {
   padding: 3rem;
 }
 
+.p-3 {
+  padding: 0.75rem;
+}
+
 .p-4 {
   padding: 1rem;
 }
 
 .p-5 {
   padding: 1.25rem;
-}
-
-.p-3 {
-  padding: 0.75rem;
 }
 
 .px-1 {

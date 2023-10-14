@@ -1,6 +1,7 @@
 package lobby
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -61,21 +62,29 @@ func (lm *LobbyManager) ListenForWs(conn *WsConnection, lobbyId, username string
 func (lm *LobbyManager) ListenToLobbyWsChan(lobbyId string) {
 	lm.logger.Info("Listening to lobbyChan")
 	lm.logger.Info("Lobby info", slog.String("lobbyId", lobbyId))
-	for {
-		lobby := lm.Lobbies[lobbyId]
-		e := <-lobby.GameChan
-        switch(e.Action){
 
-        }
-        fmt.Printf("%#v", e)
-		w, err := e.Conn.NextWriter(websocket.TextMessage)
-		if err != nil {
-			return
+    for _, l := range lm.Lobbies {
+        fmt.Printf("%#v", l)
+    }
+	lobby := lm.Lobbies[lobbyId]
+	for {
+		// lobby := lm.Lobbies[lobbyId]
+		e := <-lobby.GameChan
+		lm.logger.Info("Action Recieved", slog.String("action", e.Action))
+		switch e.Action {
+		case "chat-message":
+			lm.logger.Info("Chat message recieved")
+			var b bytes.Buffer
+			err := partials.ChatMessage(e.Message).Render(context.Background(), &b)
+			if err != nil {
+				lm.logger.Error(err.Error())
+			}
+			err = e.Conn.WriteMessage(websocket.TextMessage, []byte(b.String()))
+			if err != nil {
+				lm.logger.Error(err.Error())
+			}
+
 		}
-        err = partials.ChatMessage(e.Message).Render(context.Background(), w)
-        if err != nil {
-            lm.logger.Error(err.Error())
-        }
 
 	}
 }

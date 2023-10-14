@@ -59,8 +59,21 @@ type LobbyManager struct {
 }
 
 func NewLobbyManager(l *slog.Logger) *LobbyManager {
+    lobbies := make(map[string]*GameLobby)
+
+    lobbies["ASDA"] = &GameLobby{
+        ID: "ASDA",
+        Game: game.NewGameService(game.BoardCellsJSONPath),
+        Clients: make(map[string]WsConnection),
+        Settings: Settings{
+            NumOfPlayers: "2",
+            MaxHandSize: "7",
+        },
+    }
+
+
 	return &LobbyManager{
-		Lobbies: make(map[string]*GameLobby),
+		Lobbies: lobbies,
 		WsChan:  make(chan WsPayload),
 		Clients: make(map[string]WsConnection),
 		logger:  l,

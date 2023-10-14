@@ -67,6 +67,7 @@ func (lm *LobbyManager) ListenToLobbyWsChan(lobbyId string) {
         fmt.Printf("%#v", l)
     }
 	lobby := lm.Lobbies[lobbyId]
+    var b bytes.Buffer
 	for {
 		// lobby := lm.Lobbies[lobbyId]
 		e := <-lobby.GameChan
@@ -74,7 +75,7 @@ func (lm *LobbyManager) ListenToLobbyWsChan(lobbyId string) {
 		switch e.Action {
 		case "chat-message":
 			lm.logger.Info("Chat message recieved")
-			var b bytes.Buffer
+            defer b.Reset()
 			err := partials.ChatMessage(e.Message).Render(context.Background(), &b)
 			if err != nil {
 				lm.logger.Error(err.Error())

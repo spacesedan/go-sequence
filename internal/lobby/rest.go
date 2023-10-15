@@ -1,8 +1,6 @@
 package lobby
 
 import (
-	"errors"
-
 	"github.com/spacesedan/go-sequence/internal/game"
 )
 
@@ -12,8 +10,8 @@ func (lm *LobbyManager) CreateLobby(s Settings) string {
 	newLobby := &GameLobby{
 		ID:       lobbyId,
 		Game:     game.NewGameService(game.BoardCellsJSONPath),
-		Clients:  make(map[string]WsConnection),
 		GameChan: make(chan WsPayload),
+		Clients:  make(map[string]WsConnection),
 		Settings: s,
 	}
 
@@ -22,9 +20,11 @@ func (lm *LobbyManager) CreateLobby(s Settings) string {
 	return lobbyId
 }
 
-func (lm *LobbyManager) JoinLobby(lobbyId, username string) (bool, error) {
-	if _, ok := lm.Lobbies[lobbyId]; !ok {
-		return false, errors.New("could not join; lobby not found")
+func (lm *LobbyManager) JoinLobby(lobbyId, username string) bool {
+	_, ok := lm.Lobbies[lobbyId]
+	if !ok {
+		return false
 	}
-	return true, nil
+
+	return true
 }

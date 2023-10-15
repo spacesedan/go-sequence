@@ -1,27 +1,34 @@
 const chatForm = document.querySelector<HTMLFormElement>("#chat-form")
 const chatInput = document.querySelector<HTMLInputElement>("#chat-input")
+const username = document.querySelector<HTMLDivElement>("#username")?.dataset["username"]
+const lobbyId = document.querySelector<HTMLDivElement>("#lobby-id")?.dataset["lobbyId"]
 
-// document.body.addEventListener("htmx:wsOpen", function(e) {
-//     const message = {
-//         action: "join_lobby",
-//     }
-//     //@ts-ignore
-//     e.detail.socketWrapper.send(JSON.stringify(message), e.detail.elt)
-// })
+console.log("username", username);
+console.log("lobby_id",lobbyId);
 
-type wsPayload = {
-    action: string
-    message: string
-    username: string
-}
 
-chatForm?.addEventListener('submit', function() {
+
+document.body.addEventListener("htmx:wsOpen", function(e) {
+    const message = {
+        action: "join_lobby",
+        username: username,
+        lobby_id: lobbyId
+    }
+    //@ts-ignore
+    e.detail.socketWrapper.send(JSON.stringify(message), e.detail.elt)
+})
+
+
+chatForm?.addEventListener('submit', function(e) {
+    e.preventDefault()
+    if (!chatInput?.value) return false
+
     chatForm.addEventListener('htmx:wsConfigSend', function(e) {
         //@ts-ignore
         e.detail.parameters = {
             action: "chat-message",
             message: chatInput!.value,
-            username: ""
+            username: username
         }
 
     })

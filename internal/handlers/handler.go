@@ -22,7 +22,7 @@ func generateUserCookie() (string, *http.Cookie) {
 		Name:     "username",
 		Value:    userName,
 		Path:     "/",
-		MaxAge:   3600,
+		MaxAge:   10 * 365 * 24 * 60 *60,
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteNoneMode,

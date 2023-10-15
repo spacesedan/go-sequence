@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"errors"
 	"log"
 	"log/slog"
@@ -27,6 +28,7 @@ func init() {
 }
 
 func main() {
+    gob.Register(lobby.WsConnection{})
 
 	errC, err := run()
 	if err != nil {
@@ -109,6 +111,7 @@ func newServer(sc ServerConfig) (*http.Server, error) {
 
 	// start services
 	lm := lobby.NewLobbyManager(sc.logger)
+
 
 	// Register handlers
 	handlers.NewLobbyHandler(lm, sc.logger, sessionManager).Register(r)

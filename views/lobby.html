@@ -1,5 +1,7 @@
 <main id="main_container" class="bg-blue-700 min-h-screen px-12 pt-12 pb-24 font-mono" hx-ext="ws"
-   hx-swap-oob="beforeend"  ws-connect="/lobby/ws?lobbyID={{ .LobbyID }}">
+    hx-swap-oob="beforeend" ws-connect="/lobby/ws">
+    <div id="username" data-username="{{ .Username }}"></div>
+    <div id="lobby-id" data-lobby-id="{{ .LobbyID }}"></div>
     <div class="grid grid-rows-lobby_grid grid-cols-5 gap-3 h-[75vh] rounded-md">
         <!-- Header row  -->
         <div class="col-span-full row-span-1 bg-white flex items-center rounded-md p-5">

@@ -29,6 +29,7 @@ type LobbyHandler struct {
 
 func NewLobbyHandler(lm *lobby.LobbyManager, l *slog.Logger, sm *scs.SessionManager) *LobbyHandler {
 	go lm.ListenToWsChannel()
+	go lm.ListenToLobbyWsChan()
 	return &LobbyHandler{
 		LobbyManager: lm,
 		logger:       l,
@@ -51,16 +52,8 @@ func (lh *LobbyHandler) Register(m *chi.Mux) {
 	})
 }
 
-type Task struct {
-	Action  string `json:"action"`
-	Subject string `json:"subject"`
-}
-
 func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	lm.logger.Info("Connected to socket")
-
-	username, _ := getUsernameFromCookie(r)
-	lobbyId := r.URL.Query().Get("lobbyID")
 
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -69,21 +62,21 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var response lobby.WsJsonResponse
-	response.Action = "connected"
-	response.LobbyID = lobbyId
-	response.Message = `<h1 id="wsStatus">Welcome to Go-Sequence</h1>`
+    conn := lobby.WsConnection{Conn: ws}
 
-	err = ws.WriteMessage(websocket.TextMessage, []byte(response.Message))
-	if err != nil {
-		lm.logger.Error("Something when trying to send a message to the client",
-			slog.String("err", err.Error()))
+	if exists := lm.sm.Exists(r.Context(), "conn"); !exists {
+		lm.sm.Put(r.Context(), "conn", conn)
 	}
 
-	conn := lobby.WsConnection{Conn: ws}
-	lm.LobbyManager.Clients[username] = conn
+    cn := lm.sm.Get(r.Context(), "conn")
+    conn = cn.(lobby.WsConnection)
 
-	go lm.LobbyManager.ListenForWs(&conn, lobbyId, username)
+	if err != nil {
+		fmt.Println("[ERROR]", err)
+	}
+
+	go lm.LobbyManager.ListenForWs(&conn)
+
 }
 
 func (lm *LobbyHandler) CreateGameLobby(w http.ResponseWriter, r *http.Request) {
@@ -107,15 +100,13 @@ func (lm *LobbyHandler) JoinLobby(w http.ResponseWriter, r *http.Request) {
 	username, _ := getUsernameFromCookie(r)
 	lobbyID := r.FormValue("lobby-id")
 
-	_, err := lm.LobbyManager.JoinLobby(lobbyID, username)
-	if err != nil {
-		fmt.Println(err.Error())
+	joined := lm.LobbyManager.JoinLobby(lobbyID, username)
+	if !joined {
 		content := "make sure you entered a valid lobby id"
 		topic := "Lobby not found"
 		partials.ToastComponent(topic, content).Render(r.Context(), w)
 		return
 	}
-
 
 	w.Header().Set("HX-Redirect", fmt.Sprintf("/lobby/%v", lobbyID))
 	render.Text(w, http.StatusSeeOther, "")

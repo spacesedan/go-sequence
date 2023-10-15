@@ -27,9 +27,7 @@ func (s *WsConnection) ReadPump() {
 			break
 		}
 
-		log.Printf("[INFO] sending: %v", payload)
 		s.LobbyManager.WsChan <- payload
-
 	}
 
 }
@@ -48,17 +46,24 @@ func (s *WsConnection) WritePump() {
 
 			switch payload.Action {
 			case "join_lobby":
-				s.Conn.WriteMessage(websocket.TextMessage, []byte("Joined"))
+				if s.LobbyID == payload.LobbyID {
+					s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%v has joined the lobby", payload.Username)))
+				}
 			case "chat-message":
-				b := bytes.NewBuffer([]byte{})
-                err := partials.ChatMessage(payload.Message).Render(context.Background(), b)
-                if err != nil {
-                    log.Println(err)
-                }
-                s.Conn.WriteMessage(websocket.TextMessage, []byte(b.String()))
+				if s.LobbyID == payload.LobbyID {
+					b := bytes.NewBuffer([]byte{})
+					err := partials.ChatMessage(payload.Message).Render(context.Background(), b)
+					if err != nil {
+						log.Println(err)
+					}
+					s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("Sending to lobby: %v", b.String())))
+				}
+            case "left":
+                fmt.Printf("[PAYLOAD] %#v", payload)
+                s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%v left", payload.Username)))
 			default:
 				fmt.Printf("%#v", payload.Action)
-				s.Conn.WriteMessage(websocket.TextMessage, []byte("POOP"))
+                s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("ACTION: %v", payload.Action)))
 			}
 		}
 	}

@@ -53,6 +53,9 @@ func (lh *LobbyHandler) Register(m *chi.Mux) {
 func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	lm.logger.Info("Connected to socket")
 
+	lobbyId := r.URL.Query().Get("lobby-id")
+	fmt.Printf("[INFO] Lobby Id: %s\n", lobbyId)
+
 	username, err := getUsernameFromCookie(r)
 	if err != nil {
 		w.Header().Set("HX-Redirect", "/")
@@ -67,7 +70,13 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session := &lobby.WsConnection{Conn: ws, Username: username, LobbyManager: lm.LobbyManager, Send: make(chan lobby.WsPayload)}
+	session := &lobby.WsConnection{
+		Conn:         ws,
+		Username:     username,
+		LobbyID:      lobbyId,
+		LobbyManager: lm.LobbyManager,
+		Send:         make(chan lobby.WsPayload)}
+
 	session.LobbyManager.RegisterChan <- session
 
 	go session.WritePump()

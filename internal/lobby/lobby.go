@@ -15,6 +15,7 @@ type WsConnection struct {
 	LobbyManager *LobbyManager
 	Conn         *websocket.Conn
 	Username     string
+	LobbyID      string
 	Send         chan WsPayload
 }
 
@@ -67,8 +68,19 @@ type LobbyManager struct {
 func NewLobbyManager(l *slog.Logger) *LobbyManager {
 	lobbies := make(map[string]*GameLobby)
 
+	// for debugging
 	lobbies["ASDA"] = &GameLobby{
 		ID:       "ASDA",
+		GameChan: make(chan WsPayload),
+		Game:     game.NewGameService(game.BoardCellsJSONPath),
+		Sessions: make(map[WsConnection]struct{}),
+		Settings: Settings{
+			NumOfPlayers: "2",
+			MaxHandSize:  "7",
+		},
+	}
+	lobbies["JKLK"] = &GameLobby{
+		ID:       "JKLK",
 		GameChan: make(chan WsPayload),
 		Game:     game.NewGameService(game.BoardCellsJSONPath),
 		Sessions: make(map[WsConnection]struct{}),
@@ -106,11 +118,21 @@ func (l *LobbyManager) Run() {
 		case session := <-l.UnregisterChan:
 			fmt.Println("Unregistering")
 			if _, ok := l.Sessions[session]; ok {
-				fmt.Println("OK")
+				fmt.Println("IS IT OK?")
 				delete(l.Sessions, session)
 			}
+
+			fmt.Println("THIS THIS HAPPEN")
+			for sess := range l.Sessions {
+				sess.Send <- WsPayload{
+                    Message: "pooping brb",
+                    Action: "left",
+                    Username: session.Username,
+                    LobbyID: sess.LobbyID,
+
+                }
+			}
 		case message := <-l.WsChan:
-			fmt.Printf("RECIEVED: %v", message)
 			for session := range l.Sessions {
 				select {
 				case session.Send <- message:

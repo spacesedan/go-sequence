@@ -18,6 +18,17 @@ document.body.addEventListener("htmx:wsOpen", function(e) {
     e.detail.socketWrapper.send(JSON.stringify(message), e.detail.elt)
 })
 
+document.body.addEventListener("htmx:wsClose", function(e) {
+    const message = {
+        action: "left",
+        username: username,
+        lobby_id: lobbyId
+    }
+    //@ts-ignore
+    e.detail.socketWrapper.send(JSON.stringify(message), e.detail.elt)
+
+})
+
 
 chatForm?.addEventListener('submit', function(e) {
     e.preventDefault()

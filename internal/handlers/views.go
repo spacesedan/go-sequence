@@ -81,13 +81,12 @@ func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lobbyID := chi.URLParam(r, "lobbyID")
-	joined := v.LobbyManager.JoinLobby(lobbyID, username)
+	exists := v.LobbyManager.LobbyExists(lobbyID, username)
 
-	if !joined {
+	if !exists {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-
 
 	data := map[string]interface{}{
 		"Title":    fmt.Sprintf("Lobby %s", lobbyID),

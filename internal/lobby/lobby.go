@@ -1,6 +1,7 @@
 package lobby
 
 import (
+	"fmt"
 	"log/slog"
 	"math/rand"
 
@@ -11,7 +12,10 @@ import (
 const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type WsConnection struct {
-	*websocket.Conn
+	LobbyManager *LobbyManager
+	Conn         *websocket.Conn
+	Username     string
+	Send         chan WsPayload
 }
 
 type WsJsonResponse struct {
@@ -21,7 +25,7 @@ type WsJsonResponse struct {
 	LobbyID        string
 	MessageType    string       `json:"message_type"`
 	SkipSender     bool         `json:"-"`
-	CurrentConn    WsConnection `json:"-"`
+	CurrentSession WsConnection `json:"-"`
 	ConnectedUsers []string     `json:"-"`
 }
 
@@ -33,14 +37,14 @@ type WsPayload struct {
 	LobbyID  string            `json:"lobby_id"`
 	Username string            `json:"username"`
 	Message  string            `json:"message"`
-	Conn     WsConnection
+	Session  WsConnection
 }
 
 type GameLobby struct {
 	ID       string
 	Game     game.GameService
 	Settings Settings
-	Clients  map[string]WsConnection
+	Sessions map[WsConnection]struct{}
 	GameChan chan WsPayload
 }
 
@@ -51,32 +55,37 @@ type Settings struct {
 }
 
 type LobbyManager struct {
-	logger    *slog.Logger
-	Lobbies   map[string]*GameLobby
-	Clients   map[string]WsConnection
-	WsChan    chan WsPayload
-	LobbyChan chan WsPayload
+	logger         *slog.Logger
+	Lobbies        map[string]*GameLobby
+	Sessions       map[*WsConnection]struct{}
+	WsChan         chan WsPayload
+	Broadcast      chan []byte
+	RegisterChan   chan *WsConnection
+	UnregisterChan chan *WsConnection
 }
 
 func NewLobbyManager(l *slog.Logger) *LobbyManager {
 	lobbies := make(map[string]*GameLobby)
 
-	// lobbies["ASDA"] = &GameLobby{
-	// 	ID:       "ASDA",
-	// 	GameChan: make(chan WsPayload),
-	// 	Game:     game.NewGameService(game.BoardCellsJSONPath),
-	// 	Clients:  make(map[string]*WsConnection),
-	// 	Settings: Settings{
-	// 		NumOfPlayers: "2",
-	// 		MaxHandSize:  "7",
-	// 	},
-	// }
+	lobbies["ASDA"] = &GameLobby{
+		ID:       "ASDA",
+		GameChan: make(chan WsPayload),
+		Game:     game.NewGameService(game.BoardCellsJSONPath),
+		Sessions: make(map[WsConnection]struct{}),
+		Settings: Settings{
+			NumOfPlayers: "2",
+			MaxHandSize:  "7",
+		},
+	}
 
 	return &LobbyManager{
-		Lobbies: lobbies,
-		WsChan:  make(chan WsPayload),
-		Clients: make(map[string]WsConnection),
-		logger:  l,
+		Lobbies:        lobbies,
+		WsChan:         make(chan WsPayload),
+		RegisterChan:   make(chan *WsConnection),
+		UnregisterChan: make(chan *WsConnection),
+		Broadcast:      make(chan []byte),
+		Sessions:       make(map[*WsConnection]struct{}),
+		logger:         l,
 	}
 }
 
@@ -86,4 +95,31 @@ func generateUniqueLobbyId() string {
 		result[i] = charset[rand.Intn(len(charset))]
 	}
 	return string(result)
+}
+
+func (l *LobbyManager) Run() {
+	for {
+		select {
+		case session := <-l.RegisterChan:
+			fmt.Println("Registering...")
+			l.Sessions[session] = struct{}{}
+		case session := <-l.UnregisterChan:
+			fmt.Println("Unregistering")
+			if _, ok := l.Sessions[session]; ok {
+				fmt.Println("OK")
+				delete(l.Sessions, session)
+			}
+		case message := <-l.WsChan:
+			fmt.Printf("RECIEVED: %v", message)
+			for session := range l.Sessions {
+				select {
+				case session.Send <- message:
+				default:
+					close(session.Send)
+					delete(l.Sessions, session)
+				}
+			}
+
+		}
+	}
 }

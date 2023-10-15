@@ -11,7 +11,7 @@ func (lm *LobbyManager) CreateLobby(s Settings) string {
 		ID:       lobbyId,
 		Game:     game.NewGameService(game.BoardCellsJSONPath),
 		GameChan: make(chan WsPayload),
-		Clients:  make(map[string]WsConnection),
+		Sessions: map[WsConnection]struct{}{},
 		Settings: s,
 	}
 
@@ -20,7 +20,7 @@ func (lm *LobbyManager) CreateLobby(s Settings) string {
 	return lobbyId
 }
 
-func (lm *LobbyManager) JoinLobby(lobbyId, username string) bool {
+func (lm *LobbyManager) LobbyExists(lobbyId, username string) bool {
 	_, ok := lm.Lobbies[lobbyId]
 	if !ok {
 		return false

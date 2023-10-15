@@ -111,6 +111,7 @@ func newServer(sc ServerConfig) (*http.Server, error) {
 
 	// start services
 	lm := lobby.NewLobbyManager(sc.logger)
+    go lm.Run()
 
 
 	// Register handlers

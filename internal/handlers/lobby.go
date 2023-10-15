@@ -28,8 +28,6 @@ type LobbyHandler struct {
 }
 
 func NewLobbyHandler(lm *lobby.LobbyManager, l *slog.Logger, sm *scs.SessionManager) *LobbyHandler {
-	go lm.ListenToWsChannel()
-	go lm.ListenToLobbyWsChan()
 	return &LobbyHandler{
 		LobbyManager: lm,
 		logger:       l,
@@ -55,6 +53,13 @@ func (lh *LobbyHandler) Register(m *chi.Mux) {
 func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	lm.logger.Info("Connected to socket")
 
+	username, err := getUsernameFromCookie(r)
+	if err != nil {
+		w.Header().Set("HX-Redirect", "/")
+		render.Text(w, http.StatusSeeOther, "")
+		return
+	}
+
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		lm.logger.Error("Something went wrong",
@@ -62,20 +67,11 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    conn := lobby.WsConnection{Conn: ws}
+	session := &lobby.WsConnection{Conn: ws, Username: username, LobbyManager: lm.LobbyManager, Send: make(chan lobby.WsPayload)}
+	session.LobbyManager.RegisterChan <- session
 
-	if exists := lm.sm.Exists(r.Context(), "conn"); !exists {
-		lm.sm.Put(r.Context(), "conn", conn)
-	}
-
-    cn := lm.sm.Get(r.Context(), "conn")
-    conn = cn.(lobby.WsConnection)
-
-	if err != nil {
-		fmt.Println("[ERROR]", err)
-	}
-
-	go lm.LobbyManager.ListenForWs(&conn)
+	go session.WritePump()
+	go session.ReadPump()
 
 }
 
@@ -100,8 +96,8 @@ func (lm *LobbyHandler) JoinLobby(w http.ResponseWriter, r *http.Request) {
 	username, _ := getUsernameFromCookie(r)
 	lobbyID := r.FormValue("lobby-id")
 
-	joined := lm.LobbyManager.JoinLobby(lobbyID, username)
-	if !joined {
+	exists := lm.LobbyManager.LobbyExists(lobbyID, username)
+	if !exists {
 		content := "make sure you entered a valid lobby id"
 		topic := "Lobby not found"
 		partials.ToastComponent(topic, content).Render(r.Context(), w)

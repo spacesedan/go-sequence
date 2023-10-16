@@ -1,10 +1,19 @@
 package partials
 
-templ ChatMessage(msg string) {
+templ ChatMessageSender(msg, alt, avatarUrl string) {
 	<div id="ws-events" hx-swap-oob="beforeend">
 		<div id="message" class="flex gap-3 justify-end items-start p-3 font-mono">
 			<p class="bg-green-400 px-3 py-2 rounded-md">{ msg }</p>
-			<img src="https://ui-avatars.com/api/?name=poop&amp;size=32&amp;rounded=true" alt="profile image for user: %v"/>
+			<img src={ avatarUrl } alt={ alt }/>
+		</div>
+	</div>
+}
+
+templ ChatMessageReciever(msg, alt, avatarUrl string) {
+	<div id="ws-events" hx-swap-oob="beforeend">
+		<div id="message" class="flex gap-3 justify-start items-start p-3 font-mono">
+			<img src={ avatarUrl } alt={ alt }/>
+			<p class="bg-indigo-400 px-3 py-2 rounded-md">{ msg }</p>
 		</div>
 	</div>
 }

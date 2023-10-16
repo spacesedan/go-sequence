@@ -3,11 +3,6 @@ const chatInput = document.querySelector<HTMLInputElement>("#chat-input")
 const username = document.querySelector<HTMLDivElement>("#username")?.dataset["username"]
 const lobbyId = document.querySelector<HTMLDivElement>("#lobby-id")?.dataset["lobbyId"]
 
-console.log("username", username);
-console.log("lobby_id",lobbyId);
-
-
-
 document.body.addEventListener("htmx:wsOpen", function(e) {
     const message = {
         action: "join_lobby",

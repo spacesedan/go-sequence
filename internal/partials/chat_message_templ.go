@@ -9,7 +9,7 @@ import "context"
 import "io"
 import "bytes"
 
-func ChatMessage(msg string) templ.Component {
+func ChatMessageSender(msg, alt, avatarUrl string) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) (err error) {
 		templBuffer, templIsBuffer := w.(*bytes.Buffer)
 		if !templIsBuffer {
@@ -31,7 +31,72 @@ func ChatMessage(msg string) templ.Component {
 		if err != nil {
 			return err
 		}
-		_, err = templBuffer.WriteString("</p><img src=\"https://ui-avatars.com/api/?name=poop&amp;size=32&amp;rounded=true\" alt=\"profile image for user: %v\"></div></div>")
+		_, err = templBuffer.WriteString("</p><img src=\"")
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString(templ.EscapeString(avatarUrl))
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("\" alt=\"")
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString(templ.EscapeString(alt))
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("\"></div></div>")
+		if err != nil {
+			return err
+		}
+		if !templIsBuffer {
+			_, err = templBuffer.WriteTo(w)
+		}
+		return err
+	})
+}
+
+func ChatMessageReciever(msg, alt, avatarUrl string) templ.Component {
+	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) (err error) {
+		templBuffer, templIsBuffer := w.(*bytes.Buffer)
+		if !templIsBuffer {
+			templBuffer = templ.GetBuffer()
+			defer templ.ReleaseBuffer(templBuffer)
+		}
+		ctx = templ.InitializeContext(ctx)
+		var_3 := templ.GetChildren(ctx)
+		if var_3 == nil {
+			var_3 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		_, err = templBuffer.WriteString("<div id=\"ws-events\" hx-swap-oob=\"beforeend\"><div id=\"message\" class=\"flex gap-3 justify-start items-start p-3 font-mono\"><img src=\"")
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString(templ.EscapeString(avatarUrl))
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("\" alt=\"")
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString(templ.EscapeString(alt))
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("\"><p class=\"bg-indigo-400 px-3 py-2 rounded-md\">")
+		if err != nil {
+			return err
+		}
+		var var_4 string = msg
+		_, err = templBuffer.WriteString(templ.EscapeString(var_4))
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("</p></div></div>")
 		if err != nil {
 			return err
 		}

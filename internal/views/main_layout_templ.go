@@ -112,7 +112,7 @@ func MainLayoutWithWs(title string, main templ.Component) templ.Component {
 		if err != nil {
 			return err
 		}
-		_, err = templBuffer.WriteString("</script><script src=\"/bundle/js/main_layout.js\">")
+		_, err = templBuffer.WriteString("</script><script src=\"https://unpkg.com/htmx.org/dist/ext/ws.js\">")
 		if err != nil {
 			return err
 		}
@@ -121,12 +121,21 @@ func MainLayoutWithWs(title string, main templ.Component) templ.Component {
 		if err != nil {
 			return err
 		}
+		_, err = templBuffer.WriteString("</script><script src=\"/bundle/js/main_layout.js\">")
+		if err != nil {
+			return err
+		}
+		var_10 := ``
+		_, err = templBuffer.WriteString(var_10)
+		if err != nil {
+			return err
+		}
 		_, err = templBuffer.WriteString("</script><!--")
 		if err != nil {
 			return err
 		}
-		var_10 := ` While still developing i want the stryled to keep updated while  `
-		_, err = templBuffer.WriteString(var_10)
+		var_11 := ` While still developing i want the stryled to keep updated while  `
+		_, err = templBuffer.WriteString(var_11)
 		if err != nil {
 			return err
 		}
@@ -134,8 +143,8 @@ func MainLayoutWithWs(title string, main templ.Component) templ.Component {
 		if err != nil {
 			return err
 		}
-		var_11 := ` <link rel="stylesheet" href="../../src/output.css"> `
-		_, err = templBuffer.WriteString(var_11)
+		var_12 := ` <link rel="stylesheet" href="../../src/output.css"> `
+		_, err = templBuffer.WriteString(var_12)
 		if err != nil {
 			return err
 		}
@@ -143,8 +152,8 @@ func MainLayoutWithWs(title string, main templ.Component) templ.Component {
 		if err != nil {
 			return err
 		}
-		var var_12 string = title
-		_, err = templBuffer.WriteString(templ.EscapeString(var_12))
+		var var_13 string = title
+		_, err = templBuffer.WriteString(templ.EscapeString(var_13))
 		if err != nil {
 			return err
 		}
@@ -179,17 +188,17 @@ func navbar() templ.Component {
 			defer templ.ReleaseBuffer(templBuffer)
 		}
 		ctx = templ.InitializeContext(ctx)
-		var_13 := templ.GetChildren(ctx)
-		if var_13 == nil {
-			var_13 = templ.NopComponent
+		var_14 := templ.GetChildren(ctx)
+		if var_14 == nil {
+			var_14 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		_, err = templBuffer.WriteString("<nav id=\"nav_bar\" class=\"bg-blue-700 p-12  py-3  font-mono text-3xl text-white\"><a href=\"/\">")
 		if err != nil {
 			return err
 		}
-		var_14 := `Home`
-		_, err = templBuffer.WriteString(var_14)
+		var_15 := `Home`
+		_, err = templBuffer.WriteString(var_15)
 		if err != nil {
 			return err
 		}

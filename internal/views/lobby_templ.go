@@ -9,7 +9,7 @@ import "context"
 import "io"
 import "bytes"
 
-func LobbyPage(lobbyId, username string) templ.Component {
+func LobbyPage(connectionString, lobbyId, username string) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) (err error) {
 		templBuffer, templIsBuffer := w.(*bytes.Buffer)
 		if !templIsBuffer {
@@ -22,7 +22,31 @@ func LobbyPage(lobbyId, username string) templ.Component {
 			var_1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		_, err = templBuffer.WriteString("<main id=\"main_container\" class=\"bg-blue-700 min-h-screen px-12 pt-12 pb-24 font-mono\" hx-ext=\"ws\" hx-swap-oob=\"beforeend\" ws-connect=\"/lobby/ws?lobby-id={{ .LobbyID }}\"><div id=\"username\" data-username=\"{ username }\"></div><div id=\"lobby-id\" data-lobby-id=\"{ lobbyId }\"></div><div class=\"grid grid-rows-lobby_grid grid-cols-5 gap-3 h-[75vh] rounded-md\"><!--")
+		_, err = templBuffer.WriteString("<main id=\"main_container\" class=\"bg-blue-700 min-h-screen px-12 pt-12 pb-24 font-mono\" hx-ext=\"ws\" hx-swap-oob=\"beforeend\" ws-connect=\"")
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString(templ.EscapeString(connectionString))
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("\"><div id=\"username\" data-username=\"")
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString(templ.EscapeString(username))
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("\"></div><div id=\"lobby-id\" data-lobby-id=\"")
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString(templ.EscapeString(lobbyId))
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("\"></div><div class=\"grid grid-rows-lobby_grid grid-cols-5 gap-3 h-[75vh] rounded-md\"><!--")
 		if err != nil {
 			return err
 		}

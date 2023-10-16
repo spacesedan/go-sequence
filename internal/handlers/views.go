@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
@@ -47,7 +48,9 @@ func (v ViewHandler) IndexPage(w http.ResponseWriter, r *http.Request) {
 		userName = userCookie.Value
 	}
 
-	err := views.MainLayout("Sequence Web", views.IndexPage(userName)).Render(context.Background(), w)
+	err := views.
+		MainLayout("Sequence Web", views.IndexPage(userName)).
+		Render(context.Background(), w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -57,7 +60,9 @@ func (v ViewHandler) IndexPage(w http.ResponseWriter, r *http.Request) {
 func (v ViewHandler) CreateLobbyPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content/Type", "text/html; charset=utf-8")
 
-	err := views.MainLayout("Sequence Web", views.CreateLobbyPage()).Render(context.Background(), w)
+	err := views.
+		MainLayout("Sequence Web", views.CreateLobbyPage()).
+		Render(context.Background(), w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -70,6 +75,7 @@ func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lobbyID := chi.URLParam(r, "lobbyID")
+    lobbyID = strings.Trim(lobbyID, " ")
 	exists := v.LobbyManager.LobbyExists(lobbyID, username)
 
 	if !exists {
@@ -77,7 +83,11 @@ func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = views.MainLayoutWithWs(fmt.Sprintf("Lobby %s", lobbyID), views.LobbyPage(lobbyID, username)).Render(context.Background(), w)
+    connectionUrl := createWebsocketConnectionString(lobbyID)
+
+	err = views.
+		MainLayoutWithWs(fmt.Sprintf("Lobby %s", lobbyID), views.LobbyPage(connectionUrl, lobbyID, username)).
+		Render(context.Background(), w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

@@ -15,7 +15,7 @@ export default defineConfig({
         manifest: true,
         emptyOutDir: true,
         cssMinify: 'lightningcss',
-        minify: true,
+        minify: false,
         rollupOptions: {
             output: {
                 assetFileNames: '[ext]/[name][extname]',

@@ -1,0 +1,48 @@
+package views
+
+templ MainLayout(title string, main templ.Component) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<script src="https://unpkg.com/htmx.org@1.9.6" integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni" crossorigin="anonymous"></script>
+			<script src="/bundle/js/main_layout.js"></script>
+			<!-- While still developing i want the stryled to keep updated while  -->
+			<!-- <link rel="stylesheet" href="../../src/output.css"> -->
+			<link rel="stylesheet" href="/bundle/css/main_layout.css"/>
+			<title>{ title }</title>
+		</head>
+		<body>
+			@navbar()
+			{! main }
+		</body>
+	</html>
+}
+
+templ MainLayoutWithWs( title string, main templ.Component) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<script src="https://unpkg.com/htmx.org@1.9.6" integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni" crossorigin="anonymous"></script>
+			<script src="/bundle/js/main_layout.js"></script>
+			<!-- While still developing i want the stryled to keep updated while  -->
+			<!-- <link rel="stylesheet" href="../../src/output.css"> -->
+			<link rel="stylesheet" href="/bundle/css/main_layout.css"/>
+			<title>{ title }</title>
+		</head>
+		<body>
+			@navbar()
+			{! main }
+		</body>
+	</html>
+}
+
+templ navbar () {
+	<nav id="nav_bar" class="bg-blue-700 p-12  py-3  font-mono text-3xl text-white">
+		<a href="/">Home</a>
+	</nav>
+}
+

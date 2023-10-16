@@ -1,34 +1,25 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
-	"github.com/kataras/blocks"
 	"github.com/spacesedan/go-sequence/internal/lobby"
+	"github.com/spacesedan/go-sequence/internal/views"
 )
 
 type ViewHandler struct {
-	Views        *blocks.Blocks
 	LobbyManager *lobby.LobbyManager
 	sm           *scs.SessionManager
 }
 
 func NewViewHandler(sm *scs.SessionManager, lm *lobby.LobbyManager) *ViewHandler {
-	views := blocks.New("./views").
-		Reload(true)
-
-	err := views.Load()
-	if err != nil {
-		panic(err)
-	}
-
 	return &ViewHandler{
 		sm:           sm,
 		LobbyManager: lm,
-		Views:        views,
 	}
 }
 
@@ -56,12 +47,7 @@ func (v ViewHandler) IndexPage(w http.ResponseWriter, r *http.Request) {
 		userName = userCookie.Value
 	}
 
-	data := map[string]interface{}{
-		"Title":    "Sequence Web",
-		"Username": userName,
-	}
-
-	err := v.Views.ExecuteTemplate(w, "index", "main", data)
+	err := views.MainLayout("Sequence Web", views.IndexPage(userName)).Render(context.Background(), w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -71,7 +57,10 @@ func (v ViewHandler) IndexPage(w http.ResponseWriter, r *http.Request) {
 func (v ViewHandler) CreateLobbyPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content/Type", "text/html; charset=utf-8")
 
-	v.Views.ExecuteTemplate(w, "create_lobby", "main", nil)
+	err := views.MainLayout("Sequence Web", views.CreateLobbyPage()).Render(context.Background(), w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
@@ -88,13 +77,7 @@ func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
-		"Title":    fmt.Sprintf("Lobby %s", lobbyID),
-		"LobbyID":  lobbyID,
-		"Username": username,
-	}
-
-	err = v.Views.ExecuteTemplate(w, "lobby", "with_ws", data)
+	err = views.MainLayoutWithWs(fmt.Sprintf("Lobby %s", lobbyID), views.LobbyPage(lobbyID, username)).Render(context.Background(), w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

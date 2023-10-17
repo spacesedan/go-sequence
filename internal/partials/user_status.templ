@@ -1,0 +1,9 @@
+package partials
+
+templ PlayerStatus(msg string) {
+<div id="ws-events" hx-swap-oob="beforeend">
+    <div id="player-status" class="flex gap-3 justify-end items-start p-3 font-mono">
+        <p class="text-black px-3 py-2 rounded-md">{ msg }</p>
+    </div>
+</div>
+}

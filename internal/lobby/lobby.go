@@ -115,6 +115,7 @@ func (l *LobbyManager) Run() {
 		case session := <-l.RegisterChan:
 			fmt.Println("Registering...")
 			l.Sessions[session] = struct{}{}
+			fmt.Println("Number of sessions", len(l.Sessions))
 		case session := <-l.UnregisterChan:
 			fmt.Println("Unregistering")
 			if _, ok := l.Sessions[session]; ok {
@@ -125,12 +126,11 @@ func (l *LobbyManager) Run() {
 			fmt.Println("THIS THIS HAPPEN")
 			for sess := range l.Sessions {
 				sess.Send <- WsPayload{
-                    Message: "pooping brb",
-                    Action: "left",
-                    Username: session.Username,
-                    LobbyID: sess.LobbyID,
-
-                }
+					Message:  "pooping brb",
+					Action:   "left",
+					Username: session.Username,
+					LobbyID:  sess.LobbyID,
+				}
 			}
 		case message := <-l.WsChan:
 			for session := range l.Sessions {

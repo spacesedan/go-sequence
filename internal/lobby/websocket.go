@@ -6,9 +6,24 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/spacesedan/go-sequence/internal/partials"
+)
+
+const (
+	// Time allowed to write a message to the peer.
+	writeWait = 10 * time.Second
+
+	// Time allowed to read the next pong message from the peer.
+	pongWait = 60 * time.Second
+
+	// Send pings to peer with this period. Must be less than pongWait.
+	pingPeriod = (pongWait * 9) / 10
+
+	// Maximum message size allowed from peer.
+	maxMessageSize = 512
 )
 
 func (s *WsConnection) ReadPump() {
@@ -16,6 +31,9 @@ func (s *WsConnection) ReadPump() {
 		s.LobbyManager.UnregisterChan <- s
 		s.Conn.Close()
 	}()
+	s.Conn.SetReadLimit(maxMessageSize)
+	s.Conn.SetReadDeadline(time.Now().Add(pongWait))
+	s.Conn.SetPongHandler(func(string) error { s.Conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 
 	var payload WsPayload
 
@@ -34,6 +52,7 @@ func (s *WsConnection) ReadPump() {
 }
 
 func (s *WsConnection) WritePump() {
+	b := bytes.Buffer{}
 	defer func() {
 		s.Conn.Close()
 	}()
@@ -48,21 +67,25 @@ func (s *WsConnection) WritePump() {
 			switch payload.Action {
 			case "join_lobby":
 				if s.LobbyID == payload.LobbyID {
-					s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%v has joined the lobby", payload.Username)))
+					if s.Username != payload.Username {
+						err := partials.PlayerStatus(fmt.Sprintf("%v joined", payload.Username)).Render(context.Background(), &b)
+						if err != nil {
+							log.Println(err)
+						}
+					}
 				}
 			case "chat-message":
 				if payload.Message == "" {
 					continue
 				}
 				if s.LobbyID == payload.LobbyID {
-					b := bytes.NewBuffer([]byte{})
 					if s.Username == payload.Username {
-						err := partials.ChatMessageSender(payload.Message, fmt.Sprintf("avatar for user %v", payload.Username), generateUserAvatar(payload.Username)).Render(context.Background(), b)
+						err := partials.ChatMessageSender(payload.Message, fmt.Sprintf("avatar for user %v", payload.Username), generateUserAvatar(payload.Username)).Render(context.Background(), &b)
 						if err != nil {
 							log.Println(err)
 						}
 					} else {
-						err := partials.ChatMessageReciever(payload.Message, fmt.Sprintf("avatar for user %v", s.Username), generateUserAvatar(payload.Username)).Render(context.Background(), b)
+						err := partials.ChatMessageReciever(payload.Message, fmt.Sprintf("avatar for user %v", s.Username), generateUserAvatar(payload.Username)).Render(context.Background(), &b)
 						if err != nil {
 							log.Println(err)
 						}
@@ -72,6 +95,10 @@ func (s *WsConnection) WritePump() {
 			case "left":
 				fmt.Printf("[PAYLOAD] %#v", payload)
 				s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%v left", payload.Username)))
+				err := partials.PlayerStatus(fmt.Sprintf("%v left", payload.Username)).Render(context.Background(), &b)
+				if err != nil {
+					log.Println(err)
+				}
 			default:
 				fmt.Printf("%#v", payload.Action)
 				s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("ACTION: %v", payload.Action)))

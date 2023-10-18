@@ -25,10 +25,10 @@ document.body.addEventListener("htmx:wsClose", function(e) {
 })
 
 chatInput?.addEventListener("keydown", function(e) {
-    if (!chatInput?.value) return false
 
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
+        if (!chatInput?.value) return false
         chatInput?.addEventListener("htmx:wsConfigSend", function(e) {
             console.log(e);
             //@ts-ignore

@@ -83,10 +83,10 @@ func (s *WsConnection) WritePump() {
 				b.Reset()
 			case "chat-message":
 				b := bytes.Buffer{}
-				if payload.Message == "" {
-					continue
-				}
 				if s.LobbyID == payload.LobbyID {
+                    if payload.Message == "" {
+                        continue
+                    }
 					if s.Username == payload.Username {
 						err := partials.ChatMessageSender(payload.Message, fmt.Sprintf("avatar for user %v", payload.Username), generateUserAvatar(payload.Username)).Render(context.Background(), &b)
 						if err != nil {

@@ -17,4 +17,5 @@ dev:
 bundle:
 	npm run build
 
-watch: watch-tw watch-bundle
+watch:
+	make -j3 generate watch-tw watch-bundle

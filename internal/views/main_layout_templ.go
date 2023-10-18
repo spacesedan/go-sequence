@@ -22,7 +22,7 @@ func MainLayout(title string, main templ.Component) templ.Component {
 			var_1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		_, err = templBuffer.WriteString("<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><script src=\"https://unpkg.com/htmx.org@1.9.6\" integrity=\"sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni\" crossorigin=\"anonymous\">")
+		_, err = templBuffer.WriteString("<html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><script src=\"https://unpkg.com/htmx.org@1.9.6\" integrity=\"sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni\" crossorigin=\"anonymous\">")
 		if err != nil {
 			return err
 		}
@@ -31,21 +31,12 @@ func MainLayout(title string, main templ.Component) templ.Component {
 		if err != nil {
 			return err
 		}
-		_, err = templBuffer.WriteString("</script><script src=\"/bundle/js/main_layout.js\">")
-		if err != nil {
-			return err
-		}
-		var_3 := ``
-		_, err = templBuffer.WriteString(var_3)
-		if err != nil {
-			return err
-		}
 		_, err = templBuffer.WriteString("</script><!--")
 		if err != nil {
 			return err
 		}
-		var_4 := ` While still developing i want the stryled to keep updated while  `
-		_, err = templBuffer.WriteString(var_4)
+		var_3 := ` While still developing i want the stryled to keep updated while  `
+		_, err = templBuffer.WriteString(var_3)
 		if err != nil {
 			return err
 		}
@@ -53,8 +44,8 @@ func MainLayout(title string, main templ.Component) templ.Component {
 		if err != nil {
 			return err
 		}
-		var_5 := ` <link rel="stylesheet" href="../../src/output.css"> `
-		_, err = templBuffer.WriteString(var_5)
+		var_4 := ` <link rel="stylesheet" href="../../src/output.css"> `
+		_, err = templBuffer.WriteString(var_4)
 		if err != nil {
 			return err
 		}
@@ -62,8 +53,8 @@ func MainLayout(title string, main templ.Component) templ.Component {
 		if err != nil {
 			return err
 		}
-		var var_6 string = title
-		_, err = templBuffer.WriteString(templ.EscapeString(var_6))
+		var var_5 string = title
+		_, err = templBuffer.WriteString(templ.EscapeString(var_5))
 		if err != nil {
 			return err
 		}
@@ -98,12 +89,21 @@ func MainLayoutWithWs(title string, main templ.Component) templ.Component {
 			defer templ.ReleaseBuffer(templBuffer)
 		}
 		ctx = templ.InitializeContext(ctx)
-		var_7 := templ.GetChildren(ctx)
-		if var_7 == nil {
-			var_7 = templ.NopComponent
+		var_6 := templ.GetChildren(ctx)
+		if var_6 == nil {
+			var_6 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		_, err = templBuffer.WriteString("<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><script src=\"https://unpkg.com/htmx.org@1.9.6\" integrity=\"sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni\" crossorigin=\"anonymous\">")
+		_, err = templBuffer.WriteString("<html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><script src=\"https://unpkg.com/htmx.org@1.9.6\" integrity=\"sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni\" crossorigin=\"anonymous\">")
+		if err != nil {
+			return err
+		}
+		var_7 := ``
+		_, err = templBuffer.WriteString(var_7)
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("</script><script src=\"https://unpkg.com/htmx.org/dist/ext/ws.js\">")
 		if err != nil {
 			return err
 		}
@@ -112,7 +112,7 @@ func MainLayoutWithWs(title string, main templ.Component) templ.Component {
 		if err != nil {
 			return err
 		}
-		_, err = templBuffer.WriteString("</script><script src=\"https://unpkg.com/htmx.org/dist/ext/ws.js\">")
+		_, err = templBuffer.WriteString("</script><script src=\"/bundle/js/main_layout.js\">")
 		if err != nil {
 			return err
 		}
@@ -121,21 +121,12 @@ func MainLayoutWithWs(title string, main templ.Component) templ.Component {
 		if err != nil {
 			return err
 		}
-		_, err = templBuffer.WriteString("</script><script src=\"/bundle/js/main_layout.js\">")
-		if err != nil {
-			return err
-		}
-		var_10 := ``
-		_, err = templBuffer.WriteString(var_10)
-		if err != nil {
-			return err
-		}
 		_, err = templBuffer.WriteString("</script><!--")
 		if err != nil {
 			return err
 		}
-		var_11 := ` While still developing i want the stryled to keep updated while  `
-		_, err = templBuffer.WriteString(var_11)
+		var_10 := ` While still developing i want the stryled to keep updated while  `
+		_, err = templBuffer.WriteString(var_10)
 		if err != nil {
 			return err
 		}
@@ -143,8 +134,8 @@ func MainLayoutWithWs(title string, main templ.Component) templ.Component {
 		if err != nil {
 			return err
 		}
-		var_12 := ` <link rel="stylesheet" href="../../src/output.css"> `
-		_, err = templBuffer.WriteString(var_12)
+		var_11 := ` <link rel="stylesheet" href="../../src/output.css"> `
+		_, err = templBuffer.WriteString(var_11)
 		if err != nil {
 			return err
 		}
@@ -152,8 +143,8 @@ func MainLayoutWithWs(title string, main templ.Component) templ.Component {
 		if err != nil {
 			return err
 		}
-		var var_13 string = title
-		_, err = templBuffer.WriteString(templ.EscapeString(var_13))
+		var var_12 string = title
+		_, err = templBuffer.WriteString(templ.EscapeString(var_12))
 		if err != nil {
 			return err
 		}
@@ -188,17 +179,17 @@ func navbar() templ.Component {
 			defer templ.ReleaseBuffer(templBuffer)
 		}
 		ctx = templ.InitializeContext(ctx)
-		var_14 := templ.GetChildren(ctx)
-		if var_14 == nil {
-			var_14 = templ.NopComponent
+		var_13 := templ.GetChildren(ctx)
+		if var_13 == nil {
+			var_13 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		_, err = templBuffer.WriteString("<nav id=\"nav_bar\" class=\"bg-blue-700 p-12  py-3  font-mono text-3xl text-white\"><a href=\"/\">")
 		if err != nil {
 			return err
 		}
-		var_15 := `Home`
-		_, err = templBuffer.WriteString(var_15)
+		var_14 := `Home`
+		_, err = templBuffer.WriteString(var_14)
 		if err != nil {
 			return err
 		}

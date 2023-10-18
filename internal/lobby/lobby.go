@@ -113,20 +113,16 @@ func (l *LobbyManager) Run() {
 	for {
 		select {
 		case session := <-l.RegisterChan:
-			fmt.Println("Registering...")
+            l.logger.Info("[REGISTERING]", slog.String("user", session.Username))
 			l.Sessions[session] = struct{}{}
-			fmt.Println("Number of sessions", len(l.Sessions))
 		case session := <-l.UnregisterChan:
-			fmt.Println("Unregistering")
+            l.logger.Info("[UNREGISTERING]", slog.String("user", session.Username))
 			if _, ok := l.Sessions[session]; ok {
-				fmt.Println("IS IT OK?")
 				delete(l.Sessions, session)
 			}
 
-			fmt.Println("THIS THIS HAPPEN")
 			for sess := range l.Sessions {
 				sess.Send <- WsPayload{
-					Message:  "pooping brb",
 					Action:   "left",
 					Username: session.Username,
 					LobbyID:  sess.LobbyID,

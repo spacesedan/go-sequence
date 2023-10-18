@@ -41,6 +41,9 @@ func (s *WsConnection) ReadPump() {
 		err := s.Conn.ReadJSON(&payload)
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("[ERROR]: %v", err)
+			}
 				log.Printf("[ERROR]: %v", err)
 			}
 			break
@@ -52,8 +55,9 @@ func (s *WsConnection) ReadPump() {
 }
 
 func (s *WsConnection) WritePump() {
-	b := bytes.Buffer{}
+	ticker := time.NewTicker(pingPeriod)
 	defer func() {
+		ticker.Stop()
 		s.Conn.Close()
 	}()
 
@@ -66,15 +70,19 @@ func (s *WsConnection) WritePump() {
 
 			switch payload.Action {
 			case "join_lobby":
+				b := bytes.Buffer{}
 				if s.LobbyID == payload.LobbyID {
 					if s.Username != payload.Username {
 						err := partials.PlayerStatus(fmt.Sprintf("%v joined", payload.Username)).Render(context.Background(), &b)
 						if err != nil {
 							log.Println(err)
 						}
+						s.Conn.WriteMessage(websocket.TextMessage, []byte(b.String()))
 					}
 				}
+				b.Reset()
 			case "chat-message":
+				b := bytes.Buffer{}
 				if payload.Message == "" {
 					continue
 				}
@@ -92,18 +100,27 @@ func (s *WsConnection) WritePump() {
 					}
 					s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("Sending to lobby: %v", b.String())))
 				}
+				b.Reset()
 			case "left":
-				fmt.Printf("[PAYLOAD] %#v", payload)
+				b := bytes.Buffer{}
 				s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%v left", payload.Username)))
 				err := partials.PlayerStatus(fmt.Sprintf("%v left", payload.Username)).Render(context.Background(), &b)
 				if err != nil {
 					log.Println(err)
 				}
+				s.Conn.WriteMessage(websocket.TextMessage, []byte(b.String()))
+				b.Reset()
 			default:
 				fmt.Printf("%#v", payload.Action)
 				s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("ACTION: %v", payload.Action)))
 			}
+		case <-ticker.C:
+			s.Conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := s.Conn.WriteMessage(websocket.PingMessage, []byte("PING")); err != nil {
+				return
+			}
 		}
+
 	}
 }
 

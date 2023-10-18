@@ -48,9 +48,8 @@ func (v ViewHandler) IndexPage(w http.ResponseWriter, r *http.Request) {
 		userName = userCookie.Value
 	}
 
-	err := views.
-		MainLayout("Sequence Web", views.IndexPage(userName)).
-		Render(context.Background(), w)
+	err := views.MainLayout("Sequence Web", views.IndexPage(userName)).
+    Render(context.Background(), w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -75,7 +74,7 @@ func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lobbyID := chi.URLParam(r, "lobbyID")
-    lobbyID = strings.Trim(lobbyID, " ")
+	lobbyID = strings.Trim(lobbyID, " ")
 	exists := v.LobbyManager.LobbyExists(lobbyID, username)
 
 	if !exists {
@@ -83,7 +82,7 @@ func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    connectionUrl := createWebsocketConnectionString(lobbyID)
+	connectionUrl := createWebsocketConnectionString(lobbyID)
 
 	err = views.
 		MainLayoutWithWs(fmt.Sprintf("Lobby %s", lobbyID), views.LobbyPage(connectionUrl, lobbyID, username)).

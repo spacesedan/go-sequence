@@ -54,7 +54,6 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	lm.logger.Info("Connected to socket")
 
 	lobbyId := r.URL.Query().Get("lobby-id")
-	fmt.Printf("[INFO] Lobby Id: %s\n", lobbyId)
 
 	username, err := getUsernameFromCookie(r)
 	if err != nil {

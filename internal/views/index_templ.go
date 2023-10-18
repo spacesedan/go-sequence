@@ -124,7 +124,7 @@ func IndexPage(username string) templ.Component {
 				return err
 			}
 		}
-		_, err = templBuffer.WriteString("</div></div></div></div><script src=\"/bundle/js/index.js\">")
+		_, err = templBuffer.WriteString("</div></div></div></div></main><script src=\"/bundle/js/index.js\">")
 		if err != nil {
 			return err
 		}
@@ -133,7 +133,7 @@ func IndexPage(username string) templ.Component {
 		if err != nil {
 			return err
 		}
-		_, err = templBuffer.WriteString("</script></main>")
+		_, err = templBuffer.WriteString("</script>")
 		if err != nil {
 			return err
 		}

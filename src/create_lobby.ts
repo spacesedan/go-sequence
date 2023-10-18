@@ -1,3 +1,5 @@
+import './main_layout'
+
 const numOfPlayersInput = document.querySelector<HTMLInputElement>("#num_of_players")
 const maxHandSizeInput = document.querySelector<HTMLInputElement>("#max_hand_size")
 const createLobbyForm = document.querySelector<HTMLFormElement>("#create-lobby-form")

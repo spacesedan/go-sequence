@@ -3,7 +3,7 @@ build:
 	@./bin/server
 
 generate:
-	air -c .templ.toml
+	air
 
 watch-tw:
 	npx tailwindcss -i ./src/input.css -o ./src/output.css --watch

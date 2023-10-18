@@ -1,3 +1,6 @@
+import "./modal.ts"
+import "./toast.ts"
+
 const userName = document.querySelector<HTMLHeadingElement>("#generated_username")!
 const generateBtn = document.querySelector<HTMLInputElement>("#generate-btn")!
 
@@ -8,6 +11,8 @@ if (generateBtn) {
     })
 }
 
-userName.addEventListener('click', function() {
-    navigator.clipboard.writeText(userName.outerText)
-})
+if (userName) {
+    userName.addEventListener('click', function() {
+        navigator.clipboard.writeText(userName.outerText)
+    })
+}

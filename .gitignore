@@ -1,7 +1,7 @@
 tmp
 bin
 node_modules
-./**/*_templ.go
+**/*_templ.go
 
 
 # Logs

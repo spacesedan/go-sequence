@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -84,6 +85,7 @@ func (s *WsConnection) WritePump() {
 			case "chat-message":
 				b := bytes.Buffer{}
 				if s.LobbyID == payload.LobbyID {
+                    payload.Message = strings.TrimSpace(payload.Message)
                     if payload.Message == "" {
                         continue
                     }

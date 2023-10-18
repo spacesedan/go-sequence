@@ -2,6 +2,9 @@ const chatForm = document.querySelector<HTMLFormElement>("#chat-form")
 const chatInput = document.querySelector<HTMLTextAreaElement>("#chat-input")
 const username = document.querySelector<HTMLDivElement>("#username")?.dataset["username"]
 const lobbyId = document.querySelector<HTMLDivElement>("#lobby-id")?.dataset["lobbyId"]
+const red = document.querySelector<HTMLDivElement>("#red")
+const blue = document.querySelector<HTMLDivElement>("#blue")
+const green = document.querySelector<HTMLDivElement>("#green")
 
 document.body.addEventListener("htmx:wsOpen", function(e) {
     const message = {

@@ -1,7 +1,6 @@
 package lobby
 
 import (
-	"fmt"
 	"log/slog"
 	"math/rand"
 

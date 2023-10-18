@@ -1,5 +1,5 @@
 const chatForm = document.querySelector<HTMLFormElement>("#chat-form")
-const chatInput = document.querySelector<HTMLInputElement>("#chat-input")
+const chatInput = document.querySelector<HTMLTextAreaElement>("#chat-input")
 const username = document.querySelector<HTMLDivElement>("#username")?.dataset["username"]
 const lobbyId = document.querySelector<HTMLDivElement>("#lobby-id")?.dataset["lobbyId"]
 
@@ -24,20 +24,22 @@ document.body.addEventListener("htmx:wsClose", function(e) {
 
 })
 
-
-chatForm?.addEventListener('submit', function(e) {
-    e.preventDefault()
+chatInput?.addEventListener("keydown", function(e) {
     if (!chatInput?.value) return false
 
-    chatForm.addEventListener('htmx:wsConfigSend', function(e) {
-        //@ts-ignore
-        e.detail.parameters = {
-            action: "chat-message",
-            message: chatInput!.value,
-            username: username
-        }
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        chatInput?.addEventListener("htmx:wsConfigSend", function(e) {
+            console.log(e);
+            //@ts-ignore
+            e.detail.parameters = {
+                action: "chat-message",
+                message: chatInput!.value,
+                username: username
+            }
 
-    })
+        })
+    }
 })
 
 document.body.addEventListener('htmx:wsAfterSend', function() {

@@ -87,7 +87,7 @@ func LobbyPage(connectionString, lobbyId, username string) templ.Component {
 		if err != nil {
 			return err
 		}
-		_, err = templBuffer.WriteString("--><div class=\"row-start-2 row-end-3 col-span-2 bg-white rounded-md p-3 flex flex-col\"><!--")
+		_, err = templBuffer.WriteString("--><div class=\"row-start-2 row-end-3 col-span-2 bg-white rounded-md p-3 flex flex-col \"><!--")
 		if err != nil {
 			return err
 		}
@@ -96,7 +96,7 @@ func LobbyPage(connectionString, lobbyId, username string) templ.Component {
 		if err != nil {
 			return err
 		}
-		_, err = templBuffer.WriteString("--><div class=\"bg-orange-300 h-full rounded-t-md\"><div id=\"ws-events\"></div></div><!--")
+		_, err = templBuffer.WriteString("--><div class=\"bg-gray-100 h-full rounded-t-md border-2 border-b-transparent\"><div id=\"ws-events\"></div></div><!--")
 		if err != nil {
 			return err
 		}
@@ -105,7 +105,7 @@ func LobbyPage(connectionString, lobbyId, username string) templ.Component {
 		if err != nil {
 			return err
 		}
-		_, err = templBuffer.WriteString("--><div class=\"bg-blue-300 h-32 rounded-b-md\"><form id=\"chat-form\" ws-send class=\"w-full\"><div><label for=\"chat-input\"></label><input id=\"chat-input\" name=\"message\" type=\"text\"></div></form></div></div></div><script src=\"/bundle/js/lobby.js\">")
+		_, err = templBuffer.WriteString("--><div class=\"rounded-b-md border-2 border-t-transparent flex flex-grow\"><textarea ws-send hx-trigger=\"keydown[!shiftKey&amp;&amp;key==&#39;Enter&#39;]\" form=\"chat-form\" rows=\"3\" cols=\"33\" class=\"bg-gray-200 px-1.5 py-0.5 rounded-md resize-none\" id=\"chat-input\" name=\"message\" type=\"text\"></textarea></div></div></div><script src=\"/bundle/js/lobby.js\">")
 		if err != nil {
 			return err
 		}

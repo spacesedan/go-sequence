@@ -51,8 +51,26 @@ case "blue":
     class="h-20 w-20 rounded-full bg-blue-500 hover:shadow-md hover:shadow-blue-500/50">
 </div>
 case "red":
-<div ws-send id="red" hx-trigger="click" class=" h-20 w-20 rounded-full bg-red-500 hover:shadow-md
+<div ws-send id="red" class=" h-20 w-20 rounded-full bg-red-500 hover:shadow-md
     hover:shadow-red-500/50">
 </div>
 }
+}
+
+templ PlayerColorUnavailableComponent(color string) {
+switch color {
+case "green":
+<div id="green"
+    class="h-20 w-20 rounded-full bg-green-500 opacity-50">
+</div>
+case "blue":
+<div id="blue" hx-trigger="click"
+    class="h-20 w-20 rounded-full bg-blue-500 hover:shadow-md hover:shadow-blue-500/50">
+</div>
+case "red":
+<div id="red" class=" h-20 w-20 rounded-full bg-red-500 hover:shadow-md
+    hover:shadow-red-500/50">
+</div>
+}
+
 }

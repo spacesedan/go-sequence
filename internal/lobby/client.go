@@ -42,9 +42,9 @@ func (s *WsConnection) ReadPump() {
 		err := s.Conn.ReadJSON(&payload)
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("[ERROR]: %v", err)
-			}
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					log.Printf("[ERROR]: %v", err)
+				}
 				log.Printf("[ERROR]: %v", err)
 			}
 			break
@@ -56,6 +56,7 @@ func (s *WsConnection) ReadPump() {
 }
 
 func (s *WsConnection) WritePump() {
+	b := bytes.Buffer{}
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -71,7 +72,6 @@ func (s *WsConnection) WritePump() {
 
 			switch payload.Action {
 			case "join_lobby":
-				b := bytes.Buffer{}
 				if s.LobbyID == payload.LobbyID {
 					if s.Username != payload.Username {
 						err := partials.PlayerStatus(fmt.Sprintf("%v joined", payload.Username)).Render(context.Background(), &b)
@@ -82,13 +82,12 @@ func (s *WsConnection) WritePump() {
 					}
 				}
 				b.Reset()
-			case "chat-message":
-				b := bytes.Buffer{}
+			case "chat_message":
 				if s.LobbyID == payload.LobbyID {
-                    payload.Message = strings.TrimSpace(payload.Message)
-                    if payload.Message == "" {
-                        continue
-                    }
+					payload.Message = strings.TrimSpace(payload.Message)
+					if payload.Message == "" {
+						continue
+					}
 					if s.Username == payload.Username {
 						err := partials.ChatMessageSender(payload.Message, fmt.Sprintf("avatar for user %v", payload.Username), generateUserAvatar(payload.Username)).Render(context.Background(), &b)
 						if err != nil {
@@ -103,8 +102,9 @@ func (s *WsConnection) WritePump() {
 					s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("Sending to lobby: %v", b.String())))
 				}
 				b.Reset()
+            case "choose_color":
+                s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("color selected %v", payload.Message)))
 			case "left":
-				b := bytes.Buffer{}
 				s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%v left", payload.Username)))
 				err := partials.PlayerStatus(fmt.Sprintf("%v left", payload.Username)).Render(context.Background(), &b)
 				if err != nil {

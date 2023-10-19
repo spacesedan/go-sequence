@@ -2,9 +2,6 @@ const chatForm = document.querySelector<HTMLFormElement>("#chat-form")
 const chatInput = document.querySelector<HTMLTextAreaElement>("#chat-input")
 const username = document.querySelector<HTMLDivElement>("#username")?.dataset["username"]
 const lobbyId = document.querySelector<HTMLDivElement>("#lobby-id")?.dataset["lobbyId"]
-const red = document.querySelector<HTMLDivElement>("#red")
-const blue = document.querySelector<HTMLDivElement>("#blue")
-const green = document.querySelector<HTMLDivElement>("#green")
 
 document.body.addEventListener("htmx:wsOpen", function(e) {
     const message = {
@@ -33,10 +30,9 @@ chatInput?.addEventListener("keydown", function(e) {
         e.preventDefault()
         if (!chatInput?.value) return false
         chatInput?.addEventListener("htmx:wsConfigSend", function(e) {
-            console.log(e);
             //@ts-ignore
             e.detail.parameters = {
-                action: "chat-message",
+                action: "chat_message",
                 message: chatInput!.value,
                 username: username
             }
@@ -49,3 +45,57 @@ document.body.addEventListener('htmx:wsAfterSend', function() {
     chatInput!.value = ""
 })
 
+// Color picking
+
+const red = document.body.querySelector<HTMLDivElement>("#red")
+const blue = document.body.querySelector<HTMLDivElement>("#blue")
+const green = document.body.querySelector<HTMLDivElement>("#green")
+
+
+
+red?.addEventListener("click", function() {
+    //@ts-ignore
+    htmx.trigger("#red", "htmx:wsConfigSend", function(e) { })
+})
+
+red?.addEventListener("htmx:wsConfigSend", function(e) {
+    //@ts-ignore
+    e.detail.parameters = {
+        action: "choose_color",
+        message: "red",
+        username: username
+    }
+
+})
+
+
+blue?.addEventListener("click", function() {
+    //@ts-ignore
+    htmx.trigger("#blue", "htmx:wsConfigSend", function(e) { })
+})
+
+blue?.addEventListener("htmx:wsConfigSend", function(e) {
+    //@ts-ignore
+    e.detail.parameters = {
+        action: "choose_color",
+        message: "blue",
+        username: username
+    }
+
+})
+
+
+green?.addEventListener("click", function() {
+    //@ts-ignore
+    htmx.trigger("#green", "htmx:wsConfigSend", function(e) { })
+})
+
+green?.addEventListener("htmx:wsConfigSend", function(e) {
+    //@ts-ignore
+    e.detail.parameters = {
+        action: "choose_color",
+        message: "green",
+        username: username
+    }
+
+})

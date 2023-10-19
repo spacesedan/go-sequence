@@ -64,8 +64,6 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		lm.logger.Error("Something went wrong",
-			slog.String("err", err.Error()))
 		return
 	}
 

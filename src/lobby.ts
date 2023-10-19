@@ -95,7 +95,8 @@ green?.addEventListener("htmx:wsConfigSend", function(e) {
     e.detail.parameters = {
         action: "choose_color",
         message: "green",
-        username: username
+        username: username,
+        lobby_id: lobbyId
     }
 
 })

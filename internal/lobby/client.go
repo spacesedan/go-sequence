@@ -1,16 +1,20 @@
 package lobby
 
 import (
-	"bytes"
-	"context"
 	"fmt"
 	"log"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/spacesedan/go-sequence/internal/partials"
+)
+
+type Color string
+
+const (
+	ColorRed  Color = "red"
+	ColorGeen Color = "green"
+	ColorBlue Color = "blue"
 )
 
 const (
@@ -26,6 +30,15 @@ const (
 	// Maximum message size allowed from peer.
 	maxMessageSize = 512
 )
+
+type WsConnection struct {
+	LobbyManager *LobbyManager
+	Conn         *websocket.Conn
+	Color        Color
+	Username     string
+	LobbyID      string
+	Send         chan WsPayload
+}
 
 func (s *WsConnection) ReadPump() {
 	defer func() {
@@ -56,7 +69,7 @@ func (s *WsConnection) ReadPump() {
 }
 
 func (s *WsConnection) WritePump() {
-	b := bytes.Buffer{}
+	var response WsResponse
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -72,46 +85,38 @@ func (s *WsConnection) WritePump() {
 
 			switch payload.Action {
 			case "join_lobby":
-				if s.LobbyID == payload.LobbyID {
-					if s.Username != payload.Username {
-						err := partials.PlayerStatus(fmt.Sprintf("%v joined", payload.Username)).Render(context.Background(), &b)
-						if err != nil {
-							log.Println(err)
-						}
-						s.Conn.WriteMessage(websocket.TextMessage, []byte(b.String()))
-					}
-				}
-				b.Reset()
+				response.Action = "joined"
+				response.CurrentSession = s
+                response.SkipSender = true
+				response.Message = fmt.Sprintf("%v joined", payload.Username)
+				s.LobbyManager.Broadcast <- response
 			case "chat_message":
-				if s.LobbyID == payload.LobbyID {
-					payload.Message = strings.TrimSpace(payload.Message)
-					if payload.Message == "" {
-						continue
-					}
-					if s.Username == payload.Username {
-						err := partials.ChatMessageSender(payload.Message, fmt.Sprintf("avatar for user %v", payload.Username), generateUserAvatar(payload.Username)).Render(context.Background(), &b)
-						if err != nil {
-							log.Println(err)
-						}
-					} else {
-						err := partials.ChatMessageReciever(payload.Message, fmt.Sprintf("avatar for user %v", s.Username), generateUserAvatar(payload.Username)).Render(context.Background(), &b)
-						if err != nil {
-							log.Println(err)
-						}
-					}
-					s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("Sending to lobby: %v", b.String())))
-				}
-				b.Reset()
-            case "choose_color":
-                s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("color selected %v", payload.Message)))
+				response.Action = "new_message"
+				response.CurrentSession = s
+				response.SkipSender = false
+				response.Message = payload.Message
+
+				s.LobbyManager.Broadcast <- response
+			case "choose_color":
+                if s.Color != "" {
+                    continue
+                }
+				s.Color = Color(payload.Message)
+
+				response.Action = "update_colors"
+				response.CurrentSession = s
+				response.SkipSender = false
+				response.Message = payload.Message
+
+				s.LobbyManager.Broadcast <- response
+
 			case "left":
-				s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%v left", payload.Username)))
-				err := partials.PlayerStatus(fmt.Sprintf("%v left", payload.Username)).Render(context.Background(), &b)
-				if err != nil {
-					log.Println(err)
-				}
-				s.Conn.WriteMessage(websocket.TextMessage, []byte(b.String()))
-				b.Reset()
+				response.Action = "left"
+				response.CurrentSession = s
+				response.SkipSender = true
+				response.Message = fmt.Sprintf("%v left", payload.Username)
+
+				s.LobbyManager.Broadcast <- response
 			default:
 				fmt.Printf("%#v", payload.Action)
 				s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("ACTION: %v", payload.Action)))

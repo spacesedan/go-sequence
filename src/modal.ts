@@ -49,7 +49,7 @@ htmx.onLoad(function(content) {
                 return
             default:
                 //@ts-ignore
-                htmx.ajax('POST', `/lobby/join?lobby_id=${lobbyIdInput?.value}`, { target: '#body', swap: 'beforeend' })
+                htmx.ajax('POST', `/lobby/join?lobby-id=${lobbyIdInput?.value}`, { target: '#body', swap: 'beforeend' })
                 lobbyIdInput!.innerText = ""
                 closeModal()
                 return

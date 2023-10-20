@@ -67,11 +67,21 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ok := lm.LobbyManager.LobbyExists(lobbyId)
+	if !ok {
+		w.Header().Set("HX-Redirect", "/")
+		render.Text(w, http.StatusSeeOther, "")
+		return
+	}
+
+	l := lm.LobbyManager.Lobbies[lobbyId]
+
 	session := &lobby.WsConnection{
 		Conn:         ws,
 		Username:     username,
 		LobbyID:      lobbyId,
 		LobbyManager: lm.LobbyManager,
+		Lobby:        l,
 		Send:         make(chan lobby.WsPayload)}
 
 	session.LobbyManager.RegisterChan <- session
@@ -99,10 +109,9 @@ func (lm *LobbyHandler) CreateGameLobby(w http.ResponseWriter, r *http.Request) 
 }
 
 func (lm *LobbyHandler) JoinLobby(w http.ResponseWriter, r *http.Request) {
-	username, _ := getUsernameFromCookie(r)
 	lobbyID := r.FormValue("lobby-id")
 
-	exists := lm.LobbyManager.LobbyExists(lobbyID, username)
+	exists := lm.LobbyManager.LobbyExists(lobbyID)
 	if !exists {
 		content := "make sure you entered a valid lobby id"
 		topic := "Lobby not found"

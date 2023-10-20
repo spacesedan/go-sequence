@@ -34,7 +34,7 @@ chatInput?.addEventListener("keydown", function(e) {
             e.detail.parameters = {
                 action: "chat_message",
                 message: chatInput!.value,
-                username: username
+                username: username,
             }
 
         })
@@ -47,56 +47,123 @@ document.body.addEventListener('htmx:wsAfterSend', function() {
 
 // Color picking
 
-const red = document.body.querySelector<HTMLDivElement>("#red")
-const blue = document.body.querySelector<HTMLDivElement>("#blue")
-const green = document.body.querySelector<HTMLDivElement>("#green")
+// const red = document.body.querySelector<HTMLDivElement>("#red")
+// const blue = document.body.querySelector<HTMLDivElement>("#blue")
+// const green = document.body.querySelector<HTMLDivElement>("#green")
+//
+//
+//
+// red?.addEventListener("click", function() {
+//     //@ts-ignore
+//     htmx.trigger("#red", "htmx:wsConfigSend", {})
+// })
+//
+// red?.addEventListener("htmx:wsConfigSend", function(e) {
+//     //@ts-ignore
+//     e.detail.parameters = {
+//         action: "choose_color",
+//         message: "red",
+//         username: username,
+//         enabled: red.dataset["enabled"] === "true" ? true : false
+//     }
+//
+// })
+//
+//
+// blue?.addEventListener("click", function() {
+//     //@ts-ignore
+//     htmx.trigger("#blue", "htmx:wsConfigSend", {})
+// })
+//
+// blue?.addEventListener("htmx:wsConfigSend", function(e) {
+//     //@ts-ignore
+//     e.detail.parameters = {
+//         action: "choose_color",
+//         message: "blue",
+//         username: username,
+//         enabled: blue.dataset["enabled"] === "true" ? true : false
+//     }
+//
+// })
+//
+//
+// green?.addEventListener("click", function() {
+//     //@ts-ignore
+//     htmx.trigger("#green", "htmx:wsConfigSend", {})
+// })
+//
+// green?.addEventListener("htmx:wsConfigSend", function(e) {
+//     const enabled = green.dataset["enabled"]
+//     console.log(enabled);
+//
+//     //@ts-ignore
+//     e.detail.parameters = {
+//         action: "choose_color",
+//         message: "green",
+//         username: username,
+//         lobby_id: lobbyId,
+//         enabled
+//     }
+//
+// })
+//
+//@ts-ignore
+htmx.onLoad(function(content) {
+    const red = document.body.querySelector<HTMLDivElement>("#red")
+    const blue = document.body.querySelector<HTMLDivElement>("#blue")
+    const green = document.body.querySelector<HTMLDivElement>("#green")
+
+    red?.addEventListener("click", function() {
+        //@ts-ignore
+        htmx.trigger("#red", "htmx:wsConfigSend", {})
+    })
+
+    red?.addEventListener("htmx:wsConfigSend", function(e) {
+        //@ts-ignore
+        e.detail.parameters = {
+            action: "choose_color",
+            message: "red",
+            username: username,
+            enabled: red.dataset["enabled"] === "true" ? true : false
+        }
+
+    })
 
 
+    blue?.addEventListener("click", function() {
+        //@ts-ignore
+        htmx.trigger("#blue", "htmx:wsConfigSend", {})
+    })
 
-red?.addEventListener("click", function() {
-    //@ts-ignore
-    htmx.trigger("#red", "htmx:wsConfigSend", function(e) { })
-})
+    blue?.addEventListener("htmx:wsConfigSend", function(e) {
+        //@ts-ignore
+        e.detail.parameters = {
+            action: "choose_color",
+            message: "blue",
+            username: username,
+            enabled: blue.dataset["enabled"] === "true" ? true : false
+        }
 
-red?.addEventListener("htmx:wsConfigSend", function(e) {
-    //@ts-ignore
-    e.detail.parameters = {
-        action: "choose_color",
-        message: "red",
-        username: username
-    }
-
-})
-
-
-blue?.addEventListener("click", function() {
-    //@ts-ignore
-    htmx.trigger("#blue", "htmx:wsConfigSend", function(e) { })
-})
-
-blue?.addEventListener("htmx:wsConfigSend", function(e) {
-    //@ts-ignore
-    e.detail.parameters = {
-        action: "choose_color",
-        message: "blue",
-        username: username
-    }
-
-})
+    })
 
 
-green?.addEventListener("click", function() {
-    //@ts-ignore
-    htmx.trigger("#green", "htmx:wsConfigSend", function(e) { })
-})
+    green?.addEventListener("click", function() {
+        //@ts-ignore
+        htmx.trigger("#green", "htmx:wsConfigSend", {})
+    })
 
-green?.addEventListener("htmx:wsConfigSend", function(e) {
-    //@ts-ignore
-    e.detail.parameters = {
-        action: "choose_color",
-        message: "green",
-        username: username,
-        lobby_id: lobbyId
-    }
+    green?.addEventListener("htmx:wsConfigSend", function(e) {
+
+        //@ts-ignore
+        e.detail.parameters = {
+            action: "choose_color",
+            message: "green",
+            username: username,
+            lobby_id: lobbyId,
+            enabled: green.dataset["enabled"] === "true" ? true : false
+        }
+
+    })
+
 
 })

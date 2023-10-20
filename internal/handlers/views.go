@@ -75,7 +75,7 @@ func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
 
 	lobbyID := chi.URLParam(r, "lobbyID")
 	lobbyID = strings.Trim(lobbyID, " ")
-	exists := v.LobbyManager.LobbyExists(lobbyID, username)
+	exists := v.LobbyManager.LobbyExists(lobbyID)
 
 	if !exists {
 		http.Redirect(w, r, "/", http.StatusSeeOther)

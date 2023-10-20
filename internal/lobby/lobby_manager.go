@@ -31,6 +31,7 @@ type WsPayload struct {
 	Settings Settings          `json:"settings"`
 	ID       string            `json:"id"`
 	LobbyID  string            `json:"lobby_id"`
+	Enabled  bool              `json:"enabled"`
 	Username string            `json:"username"`
 	Message  string            `json:"message"`
 	Session  *WsConnection
@@ -40,7 +41,7 @@ type GameLobby struct {
 	ID       string
 	Game     game.GameService
 	Settings Settings
-	Sessions map[WsConnection]struct{}
+	Sessions map[*WsConnection]struct{}
 	GameChan chan WsPayload
 }
 
@@ -68,7 +69,18 @@ func NewLobbyManager(l *slog.Logger) *LobbyManager {
 		ID:       "ASDA",
 		GameChan: make(chan WsPayload),
 		Game:     game.NewGameService(game.BoardCellsJSONPath),
-		Sessions: make(map[WsConnection]struct{}),
+		Sessions: make(map[*WsConnection]struct{}),
+		Settings: Settings{
+			NumOfPlayers: "2",
+			MaxHandSize:  "7",
+		},
+	}
+
+	lobbies["JKLK"] = &GameLobby{
+		ID:       "JKLK",
+		GameChan: make(chan WsPayload),
+		Game:     game.NewGameService(game.BoardCellsJSONPath),
+		Sessions: make(map[*WsConnection]struct{}),
 		Settings: Settings{
 			NumOfPlayers: "2",
 			MaxHandSize:  "7",
@@ -95,23 +107,41 @@ func generateUniqueLobbyId() string {
 }
 
 func (l *LobbyManager) Run() {
+	defer func() {
+		for _, lobby := range l.Lobbies {
+			close(lobby.GameChan)
+		}
+		close(l.RegisterChan)
+		close(l.Broadcast)
+		close(l.UnregisterChan)
+		close(l.WsChan)
+	}()
 	for {
 		select {
 		case session := <-l.RegisterChan:
 			l.logger.Info("[REGISTERING]", slog.String("user", session.Username))
 			l.Sessions[session] = struct{}{}
+			l.Lobbies[session.LobbyID].Sessions[session] = struct{}{}
 		case session := <-l.UnregisterChan:
 			l.logger.Info("[UNREGISTERING]", slog.String("user", session.Username))
 			if _, ok := l.Sessions[session]; ok {
 				delete(l.Sessions, session)
 			}
+			if _, ok := l.Lobbies[session.LobbyID].Sessions[session]; ok {
+				delete(l.Lobbies[session.LobbyID].Sessions, session)
+			}
 		case payload := <-l.WsChan:
-			for session := range l.Sessions {
-				select {
-				case session.Send <- payload:
-				default:
-					close(session.Send)
-					delete(l.Sessions, session)
+			// this needs to change from sending lobby messages to to every connected user and only sending
+			// their corressponding sessions
+			if ok := l.LobbyExists(payload.LobbyID); ok {
+				for session := range l.Lobbies[payload.LobbyID].Sessions {
+					select {
+					case session.Send <- payload:
+					default:
+						close(session.Send)
+                        delete(l.Lobbies[session.LobbyID].Sessions, session)
+						delete(l.Sessions, session)
+					}
 				}
 			}
 		case response := <-l.Broadcast:
@@ -162,4 +192,9 @@ func (l *LobbyManager) broadcastChatMessage(response WsResponse) {
 
 	}
 
+}
+
+func (l *LobbyManager) LobbyExists(lobbyId string) bool {
+	_, ok := l.Lobbies[lobbyId]
+	return ok
 }

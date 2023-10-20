@@ -1,12 +1,16 @@
 package lobby
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"net/url"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/spacesedan/go-sequence/internal/partials"
+	"github.com/spacesedan/go-sequence/internal/views"
 )
 
 type Color string
@@ -33,6 +37,7 @@ const (
 
 type WsConnection struct {
 	LobbyManager *LobbyManager
+	Lobby        *GameLobby
 	Conn         *websocket.Conn
 	Color        Color
 	Username     string
@@ -70,6 +75,7 @@ func (s *WsConnection) ReadPump() {
 
 func (s *WsConnection) WritePump() {
 	var response WsResponse
+	var b bytes.Buffer
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -85,31 +91,51 @@ func (s *WsConnection) WritePump() {
 
 			switch payload.Action {
 			case "join_lobby":
-				response.Action = "joined"
-				response.CurrentSession = s
-                response.SkipSender = true
 				response.Message = fmt.Sprintf("%v joined", payload.Username)
-				s.LobbyManager.Broadcast <- response
+
+				if payload.Username != s.Username {
+					partials.PlayerStatus(response.Message).Render(context.Background(), &b)
+					if err := s.broadcastMessage(b.String()); err != nil {
+						s.Conn.Close()
+					}
+				}
+				b.Reset()
 			case "chat_message":
 				response.Action = "new_message"
 				response.CurrentSession = s
 				response.SkipSender = false
 				response.Message = payload.Message
 
-				s.LobbyManager.Broadcast <- response
-			case "choose_color":
-                if s.Color != "" {
-                    continue
-                }
-				s.Color = Color(payload.Message)
+				alt := fmt.Sprintf("Avatar for %v", payload.Username)
 
+				if payload.Username == s.Username {
+					partials.ChatMessageSender(response.Message, alt, generateUserAvatar(payload.Username)).Render(context.Background(), &b)
+				} else {
+					partials.ChatMessageReciever(response.Message, alt, generateUserAvatar(payload.Username)).Render(context.Background(), &b)
+				}
+				if err := s.broadcastMessage(b.String()); err != nil {
+					s.Conn.Close()
+				}
+
+				b.Reset()
+			case "choose_color":
 				response.Action = "update_colors"
 				response.CurrentSession = s
 				response.SkipSender = false
 				response.Message = payload.Message
 
-				s.LobbyManager.Broadcast <- response
+				// if send and no color set, set the player color
+				if payload.Enabled {
+					views.PlayerColorUnavailableComponent(response.Message).Render(context.Background(), &b)
+				} else {
+					views.PlayerColorComponent(response.Message).Render(context.Background(), &b)
+				}
+				fmt.Printf("\n%v\n%v\n%v\n", payload.Enabled, payload.Message, b.String())
+				if err := s.broadcastMessage(b.String()); err != nil {
+					s.Conn.Close()
+				}
 
+				b.Reset()
 			case "left":
 				response.Action = "left"
 				response.CurrentSession = s
@@ -129,6 +155,21 @@ func (s *WsConnection) WritePump() {
 		}
 
 	}
+}
+
+func (s *WsConnection) setColor(payload WsPayload) error {
+    if s.Color == "" {
+        s.Color = Color(payload.Message)
+    }
+
+    return nil
+}
+func (s *WsConnection) updateColor() error{
+    return nil
+}
+
+func (s *WsConnection) broadcastMessage(msg string) error {
+	return s.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 }
 
 func generateUserAvatar(username string) string {

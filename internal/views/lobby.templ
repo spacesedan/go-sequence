@@ -1,9 +1,11 @@
 package views
 
+import "github.com/spacesedan/go-sequence/internal/components"
+
 templ LobbyPage(connectionString, lobbyId, username string) {
 	<main
  		id="main_container"
- 		class="bg-blue-700 min-h-screen px-12 pt-12 pb-24 font-mono"
+ 		class=" min-h-screen px-12 pt-12 pb-24 font-mono"
  		hx-ext="ws"
  		ws-connect={
     connectionString }
@@ -18,10 +20,10 @@ templ LobbyPage(connectionString, lobbyId, username string) {
 			<!-- Player settings -->
 			<div class="row-start-2 row-end-3 col-span-3 bg-white p-3 rounded-md">
 				<div class="flex gap-5">
-					<div class="h-22 bg-blue-500 rounded-full"></div>
-					@PlayerColorComponent("green")
-					@PlayerColorComponent("blue")
-					@PlayerColorComponent("red")
+
+					@components.PlayerColorComponent("green")
+					@components.PlayerColorComponent("blue")
+					@components.PlayerColorComponent("red")
 				</div>
 			</div>
 			<!-- Player chat-->
@@ -49,45 +51,5 @@ templ LobbyPage(connectionString, lobbyId, username string) {
 		</div>
 		<script src="/bundle/js/lobby.js"></script>
 	</main>
-}
-
-templ PlayerColorComponent(color string) {
-	switch color {
-		case "green":
-			<div
- 				ws-send
- 				id="green"
- 				hx-trigger="click"
-                data-enabled="true"
- 				class="h-20 w-20 rounded-full bg-green-500 hover:shadow-md hover:shadow-green-500/50"
-			></div>
-		case "blue":
-			<div
- 				ws-send
- 				id="blue"
-                data-enabled="true"
- 				hx-trigger="click"
- 				class="h-20 w-20 rounded-full bg-blue-500 hover:shadow-md hover:shadow-blue-500/50"
-			></div>
-		case "red":
-			<div
- 				ws-send
- 				id="red"
-                data-enabled="true"
- 				class=" h-20 w-20 rounded-full bg-red-500 hover:shadow-md
-    hover:shadow-red-500/50"
-			></div>
-	}
-}
-
-templ PlayerColorUnavailableComponent(color string) {
-	switch color {
-		case "green":
-			<div ws-send id="green" hx-trigger="click" enabled="false" hx-swap-oob="outerHTML" class="h-20 w-20 rounded-full bg-green-500 opacity-50"></div>
-		case "blue":
-			<div ws-send id="blue" hx-trigger="click" data-enabled="false" hx-swap-oob="outerHTML" class="h-20 w-20 rounded-full bg-blue-500 opacity-50"></div>
-		case "red":
-			<div ws-send id="red" hx-trigger="click" data-enabled="false" hx-swap-oob="outerHTML" class=" h-20 w-20 rounded-full bg-red-500 opacity-50"></div>
-	}
 }
 

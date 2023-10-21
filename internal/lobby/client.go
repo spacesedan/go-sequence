@@ -9,16 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/spacesedan/go-sequence/internal/partials"
-	"github.com/spacesedan/go-sequence/internal/views"
-)
-
-type Color string
-
-const (
-	ColorRed  Color = "red"
-	ColorGeen Color = "green"
-	ColorBlue Color = "blue"
+	"github.com/spacesedan/go-sequence/internal/components"
 )
 
 const (
@@ -39,7 +30,7 @@ type WsConnection struct {
 	LobbyManager *LobbyManager
 	Lobby        *GameLobby
 	Conn         *websocket.Conn
-	Color        Color
+	Color        string
 	Username     string
 	LobbyID      string
 	Send         chan WsPayload
@@ -61,9 +52,9 @@ func (s *WsConnection) ReadPump() {
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					log.Printf("[ERROR]: %v", err)
+					log.Printf("[ERROR]: %v on session %v", err, s.Username)
 				}
-				log.Printf("[ERROR]: %v", err)
+				log.Printf("[ERROR]: %v on session %v", err, s.Username)
 			}
 			break
 		}
@@ -94,12 +85,13 @@ func (s *WsConnection) WritePump() {
 				response.Message = fmt.Sprintf("%v joined", payload.Username)
 
 				if payload.Username != s.Username {
-					partials.PlayerStatus(response.Message).Render(context.Background(), &b)
+					components.PlayerStatus(response.Message).Render(context.Background(), &b)
 					if err := s.broadcastMessage(b.String()); err != nil {
-						s.Conn.Close()
+						break
 					}
 				}
 				b.Reset()
+
 			case "chat_message":
 				response.Action = "new_message"
 				response.CurrentSession = s
@@ -109,33 +101,31 @@ func (s *WsConnection) WritePump() {
 				alt := fmt.Sprintf("Avatar for %v", payload.Username)
 
 				if payload.Username == s.Username {
-					partials.ChatMessageSender(response.Message, alt, generateUserAvatar(payload.Username)).Render(context.Background(), &b)
+					components.ChatMessageSender(response.Message, alt, generateUserAvatar(payload.Username)).Render(context.Background(), &b)
 				} else {
-					partials.ChatMessageReciever(response.Message, alt, generateUserAvatar(payload.Username)).Render(context.Background(), &b)
+					components.ChatMessageReciever(response.Message, alt, generateUserAvatar(payload.Username)).Render(context.Background(), &b)
 				}
 				if err := s.broadcastMessage(b.String()); err != nil {
-					s.Conn.Close()
+					break
 				}
 
 				b.Reset()
 			case "choose_color":
-				response.Action = "update_colors"
-				response.CurrentSession = s
-				response.SkipSender = false
 				response.Message = payload.Message
-
-				// if send and no color set, set the player color
-				if payload.Enabled {
-					views.PlayerColorUnavailableComponent(response.Message).Render(context.Background(), &b)
+				if s.Color == "" {
+					s.setColor(payload)
 				} else {
-					views.PlayerColorComponent(response.Message).Render(context.Background(), &b)
+					s.updateColor(payload)
 				}
-				fmt.Printf("\n%v\n%v\n%v\n", payload.Enabled, payload.Message, b.String())
-				if err := s.broadcastMessage(b.String()); err != nil {
-					s.Conn.Close()
+				if !payload.Enabled {
+					fmt.Printf("\n[COLOR TAKEN] %v your a bum\n", s.Username)
+					return
 				}
 
+				s.syncColors(b)
 				b.Reset()
+			case "update_colors":
+				fmt.Printf("\n[ACTION] %v\n", payload.Action)
 			case "left":
 				response.Action = "left"
 				response.CurrentSession = s
@@ -144,8 +134,7 @@ func (s *WsConnection) WritePump() {
 
 				s.LobbyManager.Broadcast <- response
 			default:
-				fmt.Printf("%#v", payload.Action)
-				s.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("ACTION: %v", payload.Action)))
+				break
 			}
 		case <-ticker.C:
 			s.Conn.SetWriteDeadline(time.Now().Add(writeWait))
@@ -157,19 +146,57 @@ func (s *WsConnection) WritePump() {
 	}
 }
 
-func (s *WsConnection) setColor(payload WsPayload) error {
-    if s.Color == "" {
-        s.Color = Color(payload.Message)
-    }
+func (s *WsConnection) syncColors(b bytes.Buffer) {
+	for color, available := range s.Lobby.AvailableColors {
+		if available {
+			components.PlayerColorComponent(color).Render(context.Background(), &b)
+		} else {
+			components.PlayerColorUnavailableComponent(color).Render(context.Background(), &b)
+		}
+		s.broadcastMessage(b.String())
+		b.Reset()
+	}
 
-    return nil
+
 }
-func (s *WsConnection) updateColor() error{
-    return nil
+
+// setColor sets the Player color
+func (s *WsConnection) setColor(payload WsPayload) {
+	if payload.Username == s.Username {
+		s.Color = payload.Message
+		s.Lobby.AvailableColors[s.Color] = false
+	}
+
+}
+
+// updateColor updates the player color and resets the previous color
+func (s *WsConnection) updateColor(payload WsPayload) {
+	if payload.Username == s.Username {
+		if payload.Message != s.Color {
+			color := s.Color
+			s.Color = payload.Message
+			s.Lobby.AvailableColors[s.Color] = false
+			s.Lobby.AvailableColors[color] = true
+		}
+	}
 }
 
 func (s *WsConnection) broadcastMessage(msg string) error {
-	return s.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+	w, err := s.Conn.NextWriter(websocket.TextMessage)
+	if err != nil {
+		return err
+	}
+
+	if _, err := w.Write([]byte(msg)); err != nil {
+		return err
+	}
+
+	if err := w.Close(); err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 func generateUserAvatar(username string) string {

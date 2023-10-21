@@ -8,8 +8,8 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
+	"github.com/spacesedan/go-sequence/internal/components"
 	"github.com/spacesedan/go-sequence/internal/lobby"
-	"github.com/spacesedan/go-sequence/internal/partials"
 )
 
 var upgrader = websocket.Upgrader{
@@ -98,7 +98,7 @@ func (lm *LobbyHandler) CreateGameLobby(w http.ResponseWriter, r *http.Request) 
 	maxHandSize := r.FormValue("max_hand_size")
 
 	// create the lobby
-	lobbyId := lm.LobbyManager.CreateLobby(lobby.Settings{
+	lobbyId := lm.LobbyManager.NewGameLobby(lobby.Settings{
 		NumOfPlayers: numberOfPlayers,
 		MaxHandSize:  maxHandSize,
 	})
@@ -115,7 +115,7 @@ func (lm *LobbyHandler) JoinLobby(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		content := "make sure you entered a valid lobby id"
 		topic := "Lobby not found"
-		partials.ToastComponent(topic, content).Render(r.Context(), w)
+		components.ToastComponent(topic, content).Render(r.Context(), w)
 		return
 	}
 
@@ -141,11 +141,11 @@ func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request)
 func (lm *LobbyHandler) PromptUserToGenerateUsername(w http.ResponseWriter, r *http.Request) {
 	topic := "Generate a username first."
 	content := `this site work better when you have a username click on "generate username" to get yours`
-	partials.ToastComponent(topic, content).Render(r.Context(), w)
+	components.ToastComponent(topic, content).Render(r.Context(), w)
 
 }
 
 func (lm *LobbyHandler) SendJoinLobbyModal(w http.ResponseWriter, r *http.Request) {
-	partials.JoinLobbyModal().Render(r.Context(), w)
+	components.JoinLobbyModal().Render(r.Context(), w)
 
 }

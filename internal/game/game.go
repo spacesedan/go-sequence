@@ -55,8 +55,8 @@ const (
 	BoardCellsJSONPath = "data/board_cells.json"
 )
 
-func NewGameService(fn string) GameService {
-	board, err := NewBoard(fn)
+func NewGameService() GameService {
+	board, err := NewBoard(BoardCellsJSONPath)
 	if err != nil {
 		panic(err)
 	}

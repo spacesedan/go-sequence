@@ -1,0 +1,42 @@
+package components
+
+templ PlayerColorComponent(color string) {
+	switch color {
+		case "green":
+			<div
+ 				ws-send
+ 				id="green"
+ 				hx-trigger="click"
+                data-enabled="true"
+ 				class="h-20 w-20 rounded-full bg-green-500 hover:shadow-md hover:shadow-green-500/50"
+			></div>
+		case "blue":
+			<div
+ 				ws-send
+ 				id="blue"
+                data-enabled="true"
+ 				hx-trigger="click"
+ 				class="h-20 w-20 rounded-full bg-blue-500 hover:shadow-md hover:shadow-blue-500/50"
+			></div>
+		case "red":
+			<div
+ 				ws-send
+ 				id="red"
+                data-enabled="true"
+ 				class=" h-20 w-20 rounded-full bg-red-500 hover:shadow-md
+    hover:shadow-red-500/50"
+			></div>
+	}
+}
+
+templ PlayerColorUnavailableComponent(color string) {
+	switch color {
+		case "green":
+			<div id="green" enabled="false" hx-swap-oob="outerHTML" class="h-20 w-20 rounded-full bg-green-500 opacity-50"></div>
+		case "blue":
+			<div id="blue" data-enabled="false" hx-swap-oob="outerHTML" class="h-20 w-20 rounded-full bg-blue-500 opacity-50"></div>
+		case "red":
+			<div id="red" data-enabled="false" hx-swap-oob="outerHTML" class=" h-20 w-20 rounded-full bg-red-500 opacity-50"></div>
+	}
+}
+

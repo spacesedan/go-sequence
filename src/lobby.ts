@@ -15,7 +15,7 @@ document.body.addEventListener("htmx:wsOpen", function(e) {
 
 document.body.addEventListener("htmx:wsClose", function(e) {
     const message = {
-        action: "left",
+        action: "left_lobby",
         username: username,
         lobby_id: lobbyId
     }

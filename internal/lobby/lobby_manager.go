@@ -8,25 +8,19 @@ import (
 const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type WsResponse struct {
-	Action         string `json:"action"`
-	Message        string `json:"message"`
-	LobbyID        string `json:"lobby_id"`
-	Username       string
+	Action         string        `json:"action"`
+	Message        string        `json:"message"`
 	SkipSender     bool          `json:"-"`
-	CurrentSession *WsConnection `json:"-"`
+	PayloadSession *WsConnection `json:"-"`
 	ConnectedUsers []string      `json:"-"`
 }
 
 type WsPayload struct {
-	Headers  map[string]string `json:"HEADERS"`
-	Action   string            `json:"action"`
-	Settings Settings          `json:"settings"`
-	ID       string            `json:"id"`
-	LobbyID  string            `json:"lobby_id"`
-	Enabled  bool              `json:"enabled"`
-	Username string            `json:"username"`
-	Message  string            `json:"message"`
-	Session  *WsConnection
+	Headers       map[string]string `json:"HEADERS"`
+	Action        string            `json:"action"`
+	Enabled       bool              `json:"enabled"`
+	Message       string            `json:"message"`
+	SenderSession *WsConnection
 }
 
 type Settings struct {
@@ -39,7 +33,7 @@ type LobbyManager struct {
 	logger         *slog.Logger
 	Lobbies        map[string]*GameLobby
 	Sessions       map[*WsConnection]struct{}
-	WsChan         chan WsPayload
+	WsPayloadChan  chan WsPayload
 	Broadcast      chan WsResponse
 	RegisterChan   chan *WsConnection
 	UnregisterChan chan *WsConnection
@@ -54,7 +48,7 @@ func NewLobbyManager(l *slog.Logger) *LobbyManager {
 
 	lm := &LobbyManager{
 		Lobbies:        make(map[string]*GameLobby),
-		WsChan:         make(chan WsPayload),
+		WsPayloadChan:  make(chan WsPayload),
 		RegisterChan:   make(chan *WsConnection),
 		UnregisterChan: make(chan *WsConnection),
 		Broadcast:      make(chan WsResponse),
@@ -79,38 +73,20 @@ func generateUniqueLobbyId() string {
 func (m *LobbyManager) Run() {
 	defer func() {
 		for _, lobby := range m.Lobbies {
-			close(lobby.GameChan)
+			close(lobby.PayloadChan)
+			close(lobby.RegisterChan)
+			close(lobby.UnregisterChan)
 		}
 		close(m.RegisterChan)
 		close(m.Broadcast)
 		close(m.UnregisterChan)
-		close(m.WsChan)
+		close(m.WsPayloadChan)
 	}()
 	for {
 		select {
-		case session := <-m.RegisterChan:
-			m.logger.Info("[REGISTERING]", slog.String("user", session.Username))
-			// add session to all sessions
-			m.Sessions[session] = struct{}{}
-			// if the player
-			m.Lobbies[session.LobbyID].Players[session.Username] = session
-		case session := <-m.UnregisterChan:
-			// delete user from all sessions
-			m.logger.Info("[UNREGISTERING]", slog.String("user", session.Username))
-			if _, ok := m.Sessions[session]; ok {
-				delete(m.Sessions, session)
-				close(session.Send)
-			}
-			// delete user from lobby session
-			if _, ok := m.Lobbies[session.LobbyID].Sessions[session]; ok {
-				delete(m.Lobbies[session.LobbyID].Players, session.Username)
-			}
-		case payload := <-m.WsChan:
-			// only send to lobby chan, the lobby chan will send only to sessions
-			// associated with that lobby
-			if ok := m.LobbyExists(payload.LobbyID); ok {
-				m.Lobbies[payload.LobbyID].GameChan <- payload
-			}
+		case _ = <-m.RegisterChan:
+		case _ = <-m.UnregisterChan:
+		case _ = <-m.WsPayloadChan:
 		}
 	}
 }

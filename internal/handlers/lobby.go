@@ -82,9 +82,9 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		LobbyID:      lobbyId,
 		LobbyManager: lm.LobbyManager,
 		Lobby:        l,
-		Send:         make(chan lobby.WsPayload)}
+		Send:         make(chan lobby.WsResponse)}
 
-	session.LobbyManager.RegisterChan <- session
+	l.RegisterChan <- session
 
 	go session.WritePump()
 	go session.ReadPump()

@@ -17,6 +17,7 @@ type GameLobby struct {
 	AvailableColors map[string]bool
 	Settings        Settings
 	Players         map[string]*WsConnection
+	Sessions        map[*WsConnection]struct{}
 
 	// connection stuff
 	// gets the incoming messages from players
@@ -54,6 +55,7 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 		Settings:        settings,
 		AvailableColors: colors,
 
+		Sessions:       make(map[*WsConnection]struct{}),
 		PayloadChan:    make(chan WsPayload),
 		RegisterChan:   make(chan *WsConnection),
 		UnregisterChan: make(chan *WsConnection),
@@ -75,12 +77,12 @@ func (l *GameLobby) Listen() {
 		select {
 		case session := <-l.RegisterChan:
 			l.logger.Info("[REGISTERING]", slog.String("user", session.Username))
-			l.Players[session.Username] = session
+			l.Sessions[session] = struct{}{}
 
 		case session := <-l.UnregisterChan:
 			l.logger.Info("[UNREGISTERING]", slog.String("user", session.Username))
-			if _, ok := l.Players[session.Username]; ok {
-				delete(l.Players, session.Username)
+			if _, ok := l.Sessions[session]; ok {
+				delete(l.Sessions, session)
 				close(session.Send)
 			}
 
@@ -109,14 +111,15 @@ func (l *GameLobby) Listen() {
 				l.broadcastResponse(response)
 
 			case "choose_color":
-                payload.SenderSession.Color = payload.Message
-				for _, session := range l.Players {
-					var b bytes.Buffer
-					components.PlayerColorUnavailableComponent(payload.Message).Render(context.Background(), &b)
-					session.broadcastMessage(b.String())
-					b.Reset()
-				}
+				response.PayloadSession = payload.SenderSession
+				response.Message = payload.Message
+				response.SkipSender = false
+				response.Action = "choose_color"
+				fmt.Println("Choosing color", l.AvailableColors)
+				l.broadcastResponse(response)
 
+			case "sync_colors":
+				l.syncColors()
 			}
 
 			// add some logic to close the lobby if there are no players
@@ -125,8 +128,22 @@ func (l *GameLobby) Listen() {
 	}
 }
 
+func (l *GameLobby) syncColors() {
+	var b bytes.Buffer
+	for color, available := range l.AvailableColors {
+		if available {
+			components.PlayerColorComponent(color).Render(context.Background(), &b)
+		} else {
+			components.PlayerColorUnavailableComponent(color).Render(context.Background(), &b)
+		}
+		l.broadcastResponse(WsResponse{Action: "sync_colors", Message: b.String()})
+		b.Reset()
+	}
+
+}
+
 func (l *GameLobby) broadcastResponse(response WsResponse) {
-	for _, session := range l.Players {
+	for session := range l.Sessions {
 		session.Send <- response
 	}
 }

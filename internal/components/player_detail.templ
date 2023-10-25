@@ -1,0 +1,28 @@
+package components
+
+import "fmt"
+
+templ PlayerDetails(username string) {
+<div id="player_details" hx-swap-oob="beforeend">
+    <div id={ fmt.Sprintf("player_%v_details", username) } class="px-3 py-2 bg-gray-200">
+        { username }
+    </div>
+</div>
+}
+
+templ PlayerDetailsColored(username, color string) {
+switch color {
+case "blue":
+<div id={ fmt.Sprintf("player_%v_details", username) } hx-swap="outerHTML" class="bg-blue-500 px-3 py-2">
+    { username }
+</div>
+case "green":
+<div id={ fmt.Sprintf("player_%v_details", username) } hx-swap="outerHTML" class="bg-green-500 px-3 py-2">
+    { username }
+</div>
+case "red":
+<div id={ fmt.Sprintf("player_%v_details", username) } hx-swap="outerHTML" class="bg-red-500 px-3 py-2">
+    { username }
+</div>
+}
+}

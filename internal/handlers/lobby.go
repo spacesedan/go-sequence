@@ -82,7 +82,11 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		LobbyID:      lobbyId,
 		LobbyManager: lm.LobbyManager,
 		Lobby:        l,
-		Send:         make(chan lobby.WsResponse)}
+		Send:         make(chan lobby.WsResponse),
+		ErrorChan:    make(chan error, 1),
+	}
+
+    fmt.Println(l.Players)
 
 	l.RegisterChan <- session
 

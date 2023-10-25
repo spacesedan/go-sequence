@@ -18,4 +18,4 @@ bundle:
 	npm run build
 
 watch:
-	make -j3 generate watch-tw watch-bundle
+	make -j4 generate watch-tw watch-bundle

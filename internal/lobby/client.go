@@ -3,6 +3,7 @@ package lobby
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -34,6 +35,7 @@ type WsConnection struct {
 	Username     string
 	LobbyID      string
 	Send         chan WsResponse
+	ErrorChan    chan error
 }
 
 func (s *WsConnection) ReadPump() {
@@ -57,15 +59,14 @@ func (s *WsConnection) ReadPump() {
 				}
 				log.Printf("[ERROR]: %v on session %v", err, s.Username)
 			}
-			break
 		}
 
 		lobbyExists := s.LobbyManager.LobbyExists(s.LobbyID)
 		if lobbyExists {
 			payload.SenderSession = s
-			s.LobbyManager.Lobbies[s.LobbyID].PayloadChan <- payload
+			s.Lobby.PayloadChan <- payload
 		} else {
-			return
+			s.ErrorChan <- errors.New("Lobby does not exist")
 		}
 	}
 
@@ -79,6 +80,7 @@ func (s *WsConnection) WritePump() {
 		s.Conn.Close()
 	}()
 
+writeLoop:
 	for {
 		select {
 		case response, ok := <-s.Send:
@@ -89,11 +91,10 @@ func (s *WsConnection) WritePump() {
 			switch response.Action {
 
 			case "join_lobby":
-
 				if response.PayloadSession != s {
 					components.PlayerStatus(response.Message).Render(context.Background(), &b)
 					if err := s.broadcastMessage(b.String()); err != nil {
-						break
+						s.ErrorChan <- err
 					}
 				}
 				b.Reset()
@@ -115,10 +116,11 @@ func (s *WsConnection) WritePump() {
 						Render(context.Background(), &b)
 				}
 				if err := s.broadcastMessage(b.String()); err != nil {
-					break
+					s.ErrorChan <- err
 				}
 
 				b.Reset()
+
 			case "choose_color":
 				if s.Color == "" {
 					s.setColor(response)
@@ -127,45 +129,36 @@ func (s *WsConnection) WritePump() {
 				}
 
 				s.Lobby.PayloadChan <- WsPayload{
-					Action: "sync_colors",
-                    Message: "",
-                    SenderSession: s,
+					Action:        "sync_colors",
+					Message:       "",
+					SenderSession: s,
+				}
+
+			case "sync_colors":
+				s.broadcastMessage(response.Message)
+			case "left":
+				components.PlayerStatus(response.Message).Render(context.Background(), &b)
+				if err := s.broadcastMessage(b.String()); err != nil {
+					s.ErrorChan <- err
 				}
 
 				b.Reset()
-			// case "update_colors":
-			// 	fmt.Printf("\n[ACTION] %v\n", payload.Action)
-			// case "left":
-			// 	response.Action = "left"
-			// 	response.CurrentSession = s
-			// 	response.SkipSender = true
-			// 	response.Message = fmt.Sprintf("%v left", payload.Username)
-			//
-			// 	s.LobbyManager.Broadcast <- response
+
 			default:
-				break
+				s.ErrorChan <- errors.New(fmt.Sprintf("Something unexpected: %v", response))
 			}
+		case err := <-s.ErrorChan:
+			fmt.Println("[ERROR] ", err)
+			break writeLoop
+
 		case <-ticker.C:
 			s.Conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := s.Conn.WriteMessage(websocket.PingMessage, []byte("")); err != nil {
-				return
+				s.ErrorChan <- err
 			}
 		}
 
 	}
-}
-
-func (s *WsConnection) syncColors(b bytes.Buffer) {
-	for color, available := range s.Lobby.AvailableColors {
-		if available {
-			components.PlayerColorComponent(color).Render(context.Background(), &b)
-		} else {
-			components.PlayerColorUnavailableComponent(color).Render(context.Background(), &b)
-		}
-		s.broadcastMessage(b.String())
-		b.Reset()
-	}
-
 }
 
 // setColor sets the Player color

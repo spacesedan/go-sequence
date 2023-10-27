@@ -10,11 +10,12 @@ import (
 )
 
 const (
-	lobbyEventJoin        = "join_lobby"
-	lobbyEventLeft        = "left_lobby"
-	lobbyEventChatMessage = "chat_message"
-	lobbyEventChooseColor = "choose_color"
-	lobbyEventSyncColors  = "sync_colors"
+	lobbyEventJoin           = "join_lobby"
+	lobbyEventLeft           = "left_lobby"
+	lobbyEventChatMessage    = "chat_message"
+	lobbyEventChooseColor    = "choose_color"
+	lobbyEventSyncColors     = "sync_colors"
+	lobbyEventSetReadyStatus = "set_ready_status"
 )
 
 type GameLobby struct {
@@ -29,6 +30,7 @@ type GameLobby struct {
 	// connection stuff
 	// gets the incoming messages from players
 	PayloadChan chan WsPayload
+	ReadyChan   chan *WsConnection
 	// registers players to the lobby
 	RegisterChan chan *WsConnection
 	// unregisters players from the lobby
@@ -67,8 +69,9 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 
 		Sessions:       make(map[*WsConnection]struct{}, settings.NumOfPlayers),
 		PayloadChan:    make(chan WsPayload),
-		RegisterChan:   make(chan *WsConnection),
-		UnregisterChan: make(chan *WsConnection),
+		ReadyChan:      make(chan *WsConnection, settings.NumOfPlayers),
+		RegisterChan:   make(chan *WsConnection, settings.NumOfPlayers),
+		UnregisterChan: make(chan *WsConnection, settings.NumOfPlayers),
 
 		lobbyManager: m,
 		logger:       m.logger,
@@ -91,11 +94,11 @@ func (m *LobbyManager) CloseLobby(id string) {
 }
 
 func (l *GameLobby) Listen() {
+	var response WsResponse
+
 	defer func() {
 		l.lobbyManager.CloseLobby(l.ID)
 	}()
-
-	var response WsResponse
 
 	l.logger.Info("Listening for incoming payloads", slog.String("lobby_id", l.ID))
 
@@ -112,6 +115,23 @@ func (l *GameLobby) Listen() {
 			if _, ok := l.Players[session.Username]; ok {
 				delete(l.Players, session.Username)
 				close(session.Send)
+			}
+
+		case session := <-l.ReadyChan:
+			l.logger.Info("Player ready",
+				slog.String("lobby_id", l.ID),
+				slog.String("username", session.Username))
+
+			allReady := true
+			for _, s := range l.Players {
+				if !s.IsReady {
+					l.logger.Info("Player not ready", slog.String("username", s.Username))
+					allReady = false
+				}
+			}
+			if allReady {
+				response.Action = "start_game"
+				l.broadcastResponse(response)
 			}
 
 		// case when sessions send payloads to the lobby
@@ -146,14 +166,22 @@ func (l *GameLobby) Listen() {
 				response.Action = "choose_color"
 				l.broadcastResponse(response)
 
+			case lobbyEventSetReadyStatus:
+				response.Action = "set_ready_status"
+				response.Message = payload.Message
+				response.PayloadSession = payload.SenderSession
+				response.SkipSender = false
+				l.broadcastResponse(response)
+
 			}
 
 		// Check every 10 seconds to make sure there is a player in the lobby
 		// if there isnt close the lobby
-		case <-time.After(10 * time.Second):
+		case <-time.After(5 * time.Second):
 			if len(l.Players) == 0 {
 				return
 			}
+
 		}
 	}
 }

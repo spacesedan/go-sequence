@@ -26,7 +26,8 @@ export default defineConfig({
                 main_layout: resolve(__dirname, 'src/main_layout.ts'),
                 index: resolve(__dirname, 'src/index.ts'),
                 create_lobby: resolve(__dirname, 'src/create_lobby.ts'),
-                lobby: resolve(__dirname, 'src/lobby.ts')
+                lobby: resolve(__dirname, 'src/lobby.ts'),
+                toastModal: resolve(__dirname, 'src/toast.ts')
             }
         }
     }

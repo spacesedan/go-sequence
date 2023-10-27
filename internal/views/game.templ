@@ -1,0 +1,9 @@
+package views
+
+templ Game(connectionString string) {
+	<main id="main_container" class=" min-h-screen px-12 pt-12 pb-24 font-mono" hx-ext="ws" ws-connect={ connectionString }>
+		<div class="bg-white h-[90vh] rounded-lg p-12">
+			<h1>THE GAME</h1>
+		</div>
+	</main>
+}

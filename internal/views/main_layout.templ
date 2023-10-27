@@ -7,7 +7,9 @@ templ MainLayout(title string, main templ.Component) {
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<script src="https://unpkg.com/htmx.org@1.9.6" integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni" crossorigin="anonymous"></script>
+			<script src="/bundle/js/toastModal.js"></script>
 			<link rel="stylesheet" href="/bundle/css/main_layout.css"/>
+
 			<title>{ title }</title>
 		</head>
 		<body class="bg-blue-700">
@@ -25,7 +27,7 @@ templ MainLayoutWithWs( title string, main templ.Component) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<script src="https://unpkg.com/htmx.org@1.9.6" integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni" crossorigin="anonymous"></script>
 			<script src="https://unpkg.com/htmx.org/dist/ext/ws.js"></script>
-			<script src="/bundle/js/main_layout.js"></script>
+			<script src="/bundle/js/toastModal.js"></script>
 			<link rel="stylesheet" href="/bundle/css/main_layout.css"/>
 			<title>{ title }</title>
 		</head>

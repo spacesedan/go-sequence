@@ -1,4 +1,3 @@
-const chatForm = document.querySelector<HTMLFormElement>("#chat-form")
 const chatInput = document.querySelector<HTMLTextAreaElement>("#chat-input")
 const username = document.querySelector<HTMLDivElement>("#username")?.dataset["username"]
 const lobbyId = document.querySelector<HTMLDivElement>("#lobby-id")?.dataset["lobbyId"]
@@ -50,6 +49,7 @@ htmx.onLoad(function(content) {
     const red = document.body.querySelector<HTMLDivElement>("#red")
     const blue = document.body.querySelector<HTMLDivElement>("#blue")
     const green = document.body.querySelector<HTMLDivElement>("#green")
+    const playerReady = document.body.querySelector<HTMLButtonElement>("#player_ready")
 
     red?.addEventListener("click", function() {
         //@ts-ignore
@@ -66,8 +66,6 @@ htmx.onLoad(function(content) {
 
     })
 
-
-
     blue?.addEventListener("click", function() {
         //@ts-ignore
         htmx.trigger("#blue", "htmx:wsConfigSend", {})
@@ -83,14 +81,12 @@ htmx.onLoad(function(content) {
 
     })
 
-
     green?.addEventListener("click", function() {
         //@ts-ignore
         htmx.trigger("#green", "htmx:wsConfigSend", {})
     })
 
     green?.addEventListener("htmx:wsConfigSend", function(e) {
-
         //@ts-ignore
         e.detail.parameters = {
             action: "choose_color",
@@ -100,5 +96,20 @@ htmx.onLoad(function(content) {
 
     })
 
+    playerReady?.addEventListener("", function() {
+        //@ts-ignore
+        htmx.trigger("#player_ready", "htmx:wsConfigSend", {})
+    })
+
+    playerReady?.addEventListener("htmx:wsConfigSend", function(e){
+        console.log(e);
+
+        //@ts-ignore
+        e.detail.parameters = {
+            action: "set_ready_status",
+            message: "ready",
+            username
+        }
+    })
 
 })

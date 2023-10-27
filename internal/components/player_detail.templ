@@ -5,29 +5,54 @@ import "fmt"
 templ PlayerDetails(usernames []string) {
 <div id="player_details" class="" hx-swap-oob="innerHTML">
     for _, username := range usernames {
-    <div id={ fmt.Sprintf("player_%v_details", username) } class="px-3 py-2 bg-gray-200 mb-3 last:mb-0 rounded-md">
-        { username }
+    <div id={ fmt.Sprintf("player_%v_details", username) }
+        class="px-3 py-2 bg-gray-200 mb-3 last:mb-0 rounded-md flex items-center justify-between">
+        <p>
+            { username }
+        </p>
+        <p>NOT READY</p>
     </div>
     }
 </div>
 }
 
-templ PlayerDetailsColored(username, color string) {
+templ PlayerDetailsColored(username, color string, ready bool) {
 switch color {
 case "blue":
 <div id={ fmt.Sprintf("player_%v_details", username) } hx-swap="outerHTML"
-    class="bg-blue-500 px-3 py-2 mb-3 last:mb-0 rounded-md">
-    { username }
+    class="bg-blue-500 px-3 py-2 mb-3 last:mb-0 rounded-md flex items-center justify-between">
+    <p>
+        { username }
+    </p>
+    if ready {
+    <p>READY</p>
+    } else {
+    <p>NOT READY</p>
+    }
 </div>
 case "green":
 <div id={ fmt.Sprintf("player_%v_details", username) } hx-swap="outerHTML"
-    class="bg-green-500 px-3 py-2 mb-3 last:mb-0 rounded-md">
-    { username }
+    class="bg-green-500 px-3 py-2 mb-3 last:mb-0 rounded-md flex items-center justify-between">
+    <p>
+        { username }
+    </p>
+    if ready {
+    <p>READY</p>
+    } else {
+    <p>NOT READY</p>
+    }
 </div>
 case "red":
 <div id={ fmt.Sprintf("player_%v_details", username) } hx-swap="outerHTML"
-    class="bg-red-500 px-3 py-2 mb-3 last:mb-0 rounded-md">
-    { username }
+    class="bg-red-500 px-3 py-2 mb-3 last:mb-0 rounded-md flex items-center justify-between">
+    <p>
+        { username }
+    </p>
+    if ready {
+    <p>READY</p>
+    } else {
+    <p>NOT READY</p>
+    }
 </div>
 }
 }

@@ -1,12 +1,23 @@
 package components
 
 templ ToastComponent(topic string, content string) {
-	<div id="toast">
-		<div id="toast-underlay" class="toast-underlay"></div>
-		<div class="toast-content text-sm font-mono">
-			<h6 class="font-bold">{ topic }</h6>
-			<p>{ content }</p>
-		</div>
-	</div>
+<div id="toast">
+    <div id="toast-underlay" class="toast-underlay"></div>
+    <div class="toast-content text-sm font-mono">
+        <h6 class="font-bold">{ topic }</h6>
+        <p>{ content }</p>
+    </div>
+</div>
 }
 
+templ ToastWSComponent(topic string, content string) {
+<main id="main_container" hx-swap-oob="afterend">
+    <div id="toast">
+        <div id="toast-underlay" class="toast-underlay"></div>
+        <div class="toast-content text-sm font-mono">
+            <h6 class="font-bold">{ topic }</h6>
+            <p>{ content }</p>
+        </div>
+    </div>
+</main>
+}

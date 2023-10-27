@@ -1,5 +1,4 @@
 import "./modal.ts"
-import "./toast.ts"
 
 const userName = document.querySelector<HTMLHeadingElement>("#generated_username")!
 const generateBtn = document.querySelector<HTMLInputElement>("#generate-btn")!

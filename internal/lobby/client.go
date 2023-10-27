@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/spacesedan/go-sequence/internal/components"
+	"github.com/spacesedan/go-sequence/internal/views"
 )
 
 const (
@@ -138,7 +139,9 @@ func (s *WsConnection) WritePump() {
 
 				components.PlayerDetailsColored(
 					response.PayloadSession.Username,
-					response.PayloadSession.Color).
+					response.PayloadSession.Color,
+					response.PayloadSession.IsReady,
+				).
 					Render(context.Background(), &b)
 
 				if err := s.sendResponse(b.String()); err != nil {
@@ -154,6 +157,38 @@ func (s *WsConnection) WritePump() {
 				}
 
 				b.Reset()
+			case "set_ready_status":
+				if response.PayloadSession == s {
+					if s.Color == "" {
+						title := "Missing player color"
+						content := "can't ready up without selecting a color"
+						components.ToastWSComponent(title, content).Render(context.Background(), &b)
+						s.sendResponse(b.String())
+						b.Reset()
+                        continue
+					}
+					s.IsReady = true
+                    s.Lobby.ReadyChan <- s
+				}
+
+				components.PlayerDetailsColored(
+					response.PayloadSession.Username,
+					response.PayloadSession.Color,
+					response.PayloadSession.IsReady,
+				).
+					Render(context.Background(), &b)
+
+				if err := s.sendResponse(b.String()); err != nil {
+					return
+				}
+				b.Reset()
+
+            case "start_game":
+                s.Lobby.logger.Info("Starting game")
+                views.Game(createWebsocketConnectionString(s.Lobby.ID)).Render(context.Background(), &b)
+                fmt.Printf("%v\n", b.String())
+                s.sendResponse(b.String())
+                b.Reset()
 
 			default:
 				fmt.Printf("\n%#v\n", response)
@@ -225,6 +260,20 @@ func generateUserAvatar(username string, size int) string {
 	q.Set("radius", "50")
 	q.Set("beard", "variant01,variant02,variant03,variant04")
 
+	u.RawQuery = q.Encode()
+
+	return u.String()
+}
+
+
+func createWebsocketConnectionString(lobbyId string) string {
+	u := url.URL{
+		Scheme: "ws",
+		Host:   "localhost:42069",
+		Path:   "/lobby/ws",
+	}
+	q := u.Query()
+	q.Set("lobby-id", lobbyId)
 	u.RawQuery = q.Encode()
 
 	return u.String()

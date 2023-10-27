@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"time"
 
 	"github.com/spacesedan/go-sequence/internal/game"
 )
@@ -40,6 +41,9 @@ type GameLobby struct {
 
 // Create a new lobby
 func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
+	m.lobbiesMu.Lock()
+	defer m.lobbiesMu.Unlock()
+
 	var lobbyId string
 	colors := make(map[string]bool, 3)
 
@@ -77,7 +81,20 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 	return lobbyId
 }
 
+func (m *LobbyManager) CloseLobby(id string) {
+	m.lobbiesMu.Lock()
+	defer m.lobbiesMu.Unlock()
+
+	m.logger.Info("Closing Lobby", slog.String("lobby_id", id))
+
+	delete(m.Lobbies, id)
+}
+
 func (l *GameLobby) Listen() {
+	defer func() {
+		l.lobbyManager.CloseLobby(l.ID)
+	}()
+
 	var response WsResponse
 
 	l.logger.Info("Listening for incoming payloads", slog.String("lobby_id", l.ID))
@@ -131,8 +148,12 @@ func (l *GameLobby) Listen() {
 
 			}
 
-			// add some logic to close the lobby if there are no players
-			// case <-time.After(5 * time.Second):
+		// Check every 10 seconds to make sure there is a player in the lobby
+		// if there isnt close the lobby
+		case <-time.After(10 * time.Second):
+			if len(l.Players) == 0 {
+				return
+			}
 		}
 	}
 }

@@ -3,6 +3,7 @@ package lobby
 import (
 	"log/slog"
 	"math/rand"
+	"sync"
 )
 
 const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -16,7 +17,6 @@ type WsResponse struct {
 }
 
 type WsPayload struct {
-	Headers       map[string]string `json:"HEADERS"`
 	Action        string            `json:"action"`
 	Message       string            `json:"message"`
 	SenderSession *WsConnection     `json:"-"`
@@ -30,6 +30,7 @@ type Settings struct {
 
 type LobbyManager struct {
 	logger         *slog.Logger
+	lobbiesMu      sync.Mutex
 	Lobbies        map[string]*GameLobby
 	Sessions       map[*WsConnection]struct{}
 	WsPayloadChan  chan WsPayload
@@ -39,7 +40,6 @@ type LobbyManager struct {
 }
 
 func NewLobbyManager(l *slog.Logger) *LobbyManager {
-
 	devSettings := Settings{
 		NumOfPlayers: 2,
 		MaxHandSize:  7,

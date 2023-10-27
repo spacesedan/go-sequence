@@ -114,6 +114,8 @@ func (lm *LobbyHandler) handleCreateGameLobby(w http.ResponseWriter, r *http.Req
 		MaxHandSize:  maxHandSize,
 	})
 
+    lm.logger.Info("New game lobby", slog.String("lobby-id", lobbyId))
+
 	// Redirect to the lobby page after it has been created
 	w.Header().Set("HX-Redirect", fmt.Sprintf("/lobby/%s", lobbyId))
 

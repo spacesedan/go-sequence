@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
@@ -38,14 +39,14 @@ func NewLobbyHandler(lm *lobby.LobbyManager, l *slog.Logger, sm *scs.SessionMana
 func (lh *LobbyHandler) Register(m *chi.Mux) {
 	m.Route("/lobby", func(r chi.Router) {
 		r.HandleFunc("/ws", lh.Serve)
-		r.Get("/generate_username", lh.GenerateUsername)
-		r.Post("/create", lh.CreateGameLobby)
-		r.Post("/join", lh.JoinLobby)
+		r.Get("/generate_username", lh.handleGenerateUsername)
+		r.Post("/create", lh.handleCreateGameLobby)
+		r.Post("/join", lh.handleJoinLobby)
 
 		lobbyHTMXGroup := r.Group(nil)
 		lobbyHTMXGroup.Route("/view", func(r chi.Router) {
-			r.Get("/toast/prompt-username", lh.PromptUserToGenerateUsername)
-			r.Get("/modal/join-lobby", lh.SendJoinLobbyModal)
+			r.Get("/toast/prompt-username", lh.handlePromptUserToGenerateUsername)
+			r.Get("/modal/join-lobby", lh.handleSendJoinLobbyModal)
 		})
 	})
 }
@@ -62,19 +63,19 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	l, ok := lm.LobbyManager.LobbyExists(lobbyId)
+	if !ok {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		render.Text(w, http.StatusSeeOther, "")
+		return
+	}
+
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
 
-	ok := lm.LobbyManager.LobbyExists(lobbyId)
-	if !ok {
-		w.Header().Set("HX-Redirect", "/")
-		render.Text(w, http.StatusSeeOther, "")
-		return
-	}
-
-	l := lm.LobbyManager.Lobbies[lobbyId]
+	fmt.Printf("%#v\n", l.Settings)
 
 	session := &lobby.WsConnection{
 		Conn:         ws,
@@ -83,10 +84,7 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		LobbyManager: lm.LobbyManager,
 		Lobby:        l,
 		Send:         make(chan lobby.WsResponse),
-		ErrorChan:    make(chan error, 1),
 	}
-
-    fmt.Println(l.Players)
 
 	l.RegisterChan <- session
 
@@ -95,15 +93,24 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (lm *LobbyHandler) CreateGameLobby(w http.ResponseWriter, r *http.Request) {
+func (lm *LobbyHandler) handleCreateGameLobby(w http.ResponseWriter, r *http.Request) {
 
 	// get the settings
-	numberOfPlayers := r.FormValue("num_of_players")
-	maxHandSize := r.FormValue("max_hand_size")
+	numberOfPlayersString := r.FormValue("num_of_players")
+	maxHandSizeString := r.FormValue("max_hand_size")
+
+	numOfPlayers, err := strconv.Atoi(numberOfPlayersString)
+	if err != nil {
+		return
+	}
+	maxHandSize, err := strconv.Atoi(maxHandSizeString)
+	if err != nil {
+		return
+	}
 
 	// create the lobby
 	lobbyId := lm.LobbyManager.NewGameLobby(lobby.Settings{
-		NumOfPlayers: numberOfPlayers,
+		NumOfPlayers: numOfPlayers,
 		MaxHandSize:  maxHandSize,
 	})
 
@@ -112,13 +119,20 @@ func (lm *LobbyHandler) CreateGameLobby(w http.ResponseWriter, r *http.Request) 
 
 }
 
-func (lm *LobbyHandler) JoinLobby(w http.ResponseWriter, r *http.Request) {
+func (lm *LobbyHandler) handleJoinLobby(w http.ResponseWriter, r *http.Request) {
 	lobbyID := r.FormValue("lobby-id")
 
-	exists := lm.LobbyManager.LobbyExists(lobbyID)
+	l, exists := lm.LobbyManager.LobbyExists(lobbyID)
 	if !exists {
 		content := "make sure you entered a valid lobby id"
 		topic := "Lobby not found"
+		components.ToastComponent(topic, content).Render(r.Context(), w)
+		return
+	}
+
+	if len(l.Players) == l.Settings.NumOfPlayers {
+		topic := "Lobby full"
+		content := "cannot join lobby, already at max capacity"
 		components.ToastComponent(topic, content).Render(r.Context(), w)
 		return
 	}
@@ -129,7 +143,7 @@ func (lm *LobbyHandler) JoinLobby(w http.ResponseWriter, r *http.Request) {
 }
 
 // GenerateUsername generates a username and stores the value in the session.
-func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request) {
+func (lm *LobbyHandler) handleGenerateUsername(w http.ResponseWriter, r *http.Request) {
 	userName, userCookie := generateUserCookie()
 
 	http.SetCookie(w, userCookie)
@@ -142,14 +156,14 @@ func (lm *LobbyHandler) GenerateUsername(w http.ResponseWriter, r *http.Request)
 	render.Text(w, http.StatusSeeOther, "")
 }
 
-func (lm *LobbyHandler) PromptUserToGenerateUsername(w http.ResponseWriter, r *http.Request) {
+func (lm *LobbyHandler) handlePromptUserToGenerateUsername(w http.ResponseWriter, r *http.Request) {
 	topic := "Generate a username first."
 	content := `this site work better when you have a username click on "generate username" to get yours`
 	components.ToastComponent(topic, content).Render(r.Context(), w)
 
 }
 
-func (lm *LobbyHandler) SendJoinLobbyModal(w http.ResponseWriter, r *http.Request) {
+func (lm *LobbyHandler) handleSendJoinLobbyModal(w http.ResponseWriter, r *http.Request) {
 	components.JoinLobbyModal().Render(r.Context(), w)
 
 }

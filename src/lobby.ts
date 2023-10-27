@@ -62,15 +62,10 @@ htmx.onLoad(function(content) {
             action: "choose_color",
             message: "red",
             username: username,
-            enabled: red.dataset["enabled"] === "true" ? true : false
         }
 
     })
 
-    red?.addEventListener("htmx:wsError", function(e) {
-        console.log(e);
-
-    })
 
 
     blue?.addEventListener("click", function() {
@@ -84,7 +79,6 @@ htmx.onLoad(function(content) {
             action: "choose_color",
             message: "blue",
             username: username,
-            enabled: blue.dataset["enabled"] === "true" ? true : false
         }
 
     })
@@ -102,8 +96,6 @@ htmx.onLoad(function(content) {
             action: "choose_color",
             message: "green",
             username: username,
-            lobby_id: lobbyId,
-            enabled: green.dataset["enabled"] === "true" ? true : false
         }
 
     })

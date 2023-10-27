@@ -3,9 +3,9 @@ package lobby
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/url"
 	"time"
 
@@ -22,29 +22,27 @@ const (
 
 	// Send pings to peer with this period. Must be less than pongWait.
 	pingPeriod = (pongWait * 9) / 10
-
-	// Maximum message size allowed from peer.
-	maxMessageSize = 512
 )
 
 type WsConnection struct {
 	LobbyManager *LobbyManager
 	Lobby        *GameLobby
+	Send         chan WsResponse
 	Conn         *websocket.Conn
-	Color        string
 	Username     string
 	LobbyID      string
-	Send         chan WsResponse
-	ErrorChan    chan error
+
+	Color   string
+	IsReady bool
 }
 
 func (s *WsConnection) ReadPump() {
 	defer func() {
-		s.LobbyManager.UnregisterChan <- s
+		s.LobbyManager.logger.Info("Read Pump closing", slog.String("username", s.Username))
+		s.Lobby.UnregisterChan <- s
 		s.Conn.Close()
 	}()
 
-	s.Conn.SetReadLimit(maxMessageSize)
 	s.Conn.SetReadDeadline(time.Now().Add(pongWait))
 	s.Conn.SetPongHandler(func(string) error { s.Conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 
@@ -54,19 +52,19 @@ func (s *WsConnection) ReadPump() {
 		err := s.Conn.ReadJSON(&payload)
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					log.Printf("[ERROR]: %v on session %v", err, s.Username)
-				}
-				log.Printf("[ERROR]: %v on session %v", err, s.Username)
+				log.Printf("[ERROR] %v\n", err)
 			}
+			s.LobbyManager.logger.Error("[ERROR]", slog.Any("err", err.Error()))
+			break
 		}
 
-		lobbyExists := s.LobbyManager.LobbyExists(s.LobbyID)
+		_, lobbyExists := s.LobbyManager.LobbyExists(s.LobbyID)
 		if lobbyExists {
 			payload.SenderSession = s
+			s.LobbyManager.logger.Info("[OUTGOING]", slog.Any("payload", payload))
 			s.Lobby.PayloadChan <- payload
 		} else {
-			s.ErrorChan <- errors.New("Lobby does not exist")
+			break
 		}
 	}
 
@@ -76,27 +74,36 @@ func (s *WsConnection) WritePump() {
 	var b bytes.Buffer
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
+		s.LobbyManager.logger.Info("Write Pump closing", slog.String("username", s.Username))
 		ticker.Stop()
 		s.Conn.Close()
 	}()
 
-writeLoop:
 	for {
 		select {
 		case response, ok := <-s.Send:
 			if !ok {
 				s.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
 			}
-
+			s.LobbyManager.logger.Info("[INCOMING]", slog.Any("response", response))
 			switch response.Action {
 
 			case "join_lobby":
 				if response.PayloadSession != s {
 					components.PlayerStatus(response.Message).Render(context.Background(), &b)
-					if err := s.broadcastMessage(b.String()); err != nil {
-						s.ErrorChan <- err
+					if err := s.sendResponse(b.String()); err != nil {
+						fmt.Println("[ACTION] join_lobby", err.Error())
+						return
 					}
 				}
+				b.Reset()
+
+				components.PlayerDetails(response.ConnectedUsers).Render(context.Background(), &b)
+				if err := s.sendResponse(b.String()); err != nil {
+					return
+				}
+
 				b.Reset()
 
 			case "new_chat_message":
@@ -106,17 +113,18 @@ writeLoop:
 					components.ChatMessageSender(
 						response.Message,
 						alt,
-						generateUserAvatar(response.PayloadSession.Username)).
+						generateUserAvatar(response.PayloadSession.Username, 32)).
 						Render(context.Background(), &b)
 				} else {
 					components.ChatMessageReciever(
 						response.Message,
 						alt,
-						generateUserAvatar(response.PayloadSession.Username)).
+						generateUserAvatar(response.PayloadSession.Username, 32)).
 						Render(context.Background(), &b)
 				}
-				if err := s.broadcastMessage(b.String()); err != nil {
-					s.ErrorChan <- err
+				if err := s.sendResponse(b.String()); err != nil {
+					fmt.Println("[ACTION] new_chat_message", err.Error())
+					return
 				}
 
 				b.Reset()
@@ -128,33 +136,34 @@ writeLoop:
 					s.updateColor(response)
 				}
 
-				s.Lobby.PayloadChan <- WsPayload{
-					Action:        "sync_colors",
-					Message:       "",
-					SenderSession: s,
-				}
+				components.PlayerDetailsColored(
+					response.PayloadSession.Username,
+					response.PayloadSession.Color).
+					Render(context.Background(), &b)
 
-			case "sync_colors":
-				s.broadcastMessage(response.Message)
+				if err := s.sendResponse(b.String()); err != nil {
+					return
+				}
+				b.Reset()
+
 			case "left":
 				components.PlayerStatus(response.Message).Render(context.Background(), &b)
-				if err := s.broadcastMessage(b.String()); err != nil {
-					s.ErrorChan <- err
+				if err := s.sendResponse(b.String()); err != nil {
+					fmt.Println("[ACTION] left", err.Error())
+					return
 				}
 
 				b.Reset()
 
 			default:
-				s.ErrorChan <- errors.New(fmt.Sprintf("Something unexpected: %v", response))
+				fmt.Printf("\n%#v\n", response)
+				return
 			}
-		case err := <-s.ErrorChan:
-			fmt.Println("[ERROR] ", err)
-			break writeLoop
-
 		case <-ticker.C:
 			s.Conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := s.Conn.WriteMessage(websocket.PingMessage, []byte("")); err != nil {
-				s.ErrorChan <- err
+			if err := s.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				fmt.Println("[ACTION] ticker", err.Error())
+				return
 			}
 		}
 
@@ -182,7 +191,8 @@ func (s *WsConnection) updateColor(response WsResponse) {
 	}
 }
 
-func (s *WsConnection) broadcastMessage(msg string) error {
+// sendResonse sends the response to the client
+func (s *WsConnection) sendResponse(msg string) error {
 	w, err := s.Conn.NextWriter(websocket.TextMessage)
 	if err != nil {
 		return err
@@ -200,18 +210,20 @@ func (s *WsConnection) broadcastMessage(msg string) error {
 
 }
 
-func generateUserAvatar(username string) string {
-	// https://ui-avatars.com/api/?name=poop&amp;size=32&amp;rounded=true
+// generateUserAvatar creates a link that will be used by the clinet to fetch a
+// avatar image for the the current user
+func generateUserAvatar(username string, size int) string {
 	u := url.URL{
 		Scheme: "https",
-		Host:   "ui-avatars.com",
-		Path:   "api",
+		Host:   "api.dicebear.com",
+		Path:   "7.x/pixel-art/svg",
 	}
 
 	q := u.Query()
-	q.Set("name", username)
-	q.Set("size", "32")
-	q.Set("rounded", "true")
+	q.Set("seed", username)
+	q.Set("size", fmt.Sprintf("%v", size))
+	q.Set("radius", "50")
+	q.Set("beard", "variant01,variant02,variant03,variant04")
 
 	u.RawQuery = q.Encode()
 

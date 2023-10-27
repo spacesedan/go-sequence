@@ -8,6 +8,7 @@ import (
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
+	"github.com/spacesedan/go-sequence/internal/components"
 	"github.com/spacesedan/go-sequence/internal/lobby"
 	"github.com/spacesedan/go-sequence/internal/views"
 )
@@ -29,15 +30,15 @@ func NewViewHandler(sm *scs.SessionManager, lm *lobby.LobbyManager) *ViewHandler
 const lobbyIdRegex string = `[0-9A-Z]{4}`
 
 func (v ViewHandler) Register(r *chi.Mux) {
-	r.Get("/", v.IndexPage)
+	r.Get("/", v.handleIndexPage)
 
 	lobbyGroup := r.Group(nil)
 	lobbyGroup.Use(CheckUsernameCookie)
-	lobbyGroup.Get("/lobby-create", v.CreateLobbyPage)
-	lobbyGroup.Get(fmt.Sprintf("/lobby/{lobbyID:%s}", lobbyIdRegex), v.LobbyPage)
+	lobbyGroup.Get("/lobby-create", v.handleCreateLobbyPage)
+	lobbyGroup.Get(fmt.Sprintf("/lobby/{lobbyID:%s}", lobbyIdRegex), v.handleLobbyPage)
 }
 
-func (v ViewHandler) IndexPage(w http.ResponseWriter, r *http.Request) {
+func (v ViewHandler) handleIndexPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content/Type", "text/html; charset=utf-8")
 
 	userCookie, _ := r.Cookie("username")
@@ -49,14 +50,14 @@ func (v ViewHandler) IndexPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := views.MainLayout("Sequence Web", views.IndexPage(userName)).
-    Render(context.Background(), w)
+		Render(context.Background(), w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 // CreateLobbyPage
-func (v ViewHandler) CreateLobbyPage(w http.ResponseWriter, r *http.Request) {
+func (v ViewHandler) handleCreateLobbyPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content/Type", "text/html; charset=utf-8")
 
 	err := views.
@@ -67,7 +68,7 @@ func (v ViewHandler) CreateLobbyPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
+func (v ViewHandler) handleLobbyPage(w http.ResponseWriter, r *http.Request) {
 	username, err := getUsernameFromCookie(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -75,11 +76,19 @@ func (v ViewHandler) LobbyPage(w http.ResponseWriter, r *http.Request) {
 
 	lobbyID := chi.URLParam(r, "lobbyID")
 	lobbyID = strings.Trim(lobbyID, " ")
-	exists := v.LobbyManager.LobbyExists(lobbyID)
+	l, exists := v.LobbyManager.LobbyExists(lobbyID)
 
 	if !exists {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
+	}
+
+	if len(l.Players) == l.Settings.NumOfPlayers {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		topic := "Lobby full"
+		content := "cannot join lobby, already at max capacity"
+        components.ToastComponent(topic, content).Render(r.Context(), w)
+        return
 	}
 
 	connectionUrl := createWebsocketConnectionString(lobbyID)

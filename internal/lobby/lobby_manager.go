@@ -18,14 +18,13 @@ type WsResponse struct {
 type WsPayload struct {
 	Headers       map[string]string `json:"HEADERS"`
 	Action        string            `json:"action"`
-	Enabled       bool              `json:"enabled"`
 	Message       string            `json:"message"`
-	SenderSession *WsConnection
+	SenderSession *WsConnection     `json:"-"`
 }
 
 type Settings struct {
-	NumOfPlayers string `json:"num_of_players"`
-	MaxHandSize  string `json:"max_hand_size"`
+	NumOfPlayers int `json:"num_of_players"`
+	MaxHandSize  int `json:"max_hand_size"`
 	Teams        bool
 }
 
@@ -42,8 +41,8 @@ type LobbyManager struct {
 func NewLobbyManager(l *slog.Logger) *LobbyManager {
 
 	devSettings := Settings{
-		NumOfPlayers: "2",
-		MaxHandSize:  "7",
+		NumOfPlayers: 2,
+		MaxHandSize:  7,
 	}
 
 	lm := &LobbyManager{
@@ -91,7 +90,7 @@ func (m *LobbyManager) Run() {
 	}
 }
 
-func (m *LobbyManager) LobbyExists(lobbyId string) bool {
-	_, ok := m.Lobbies[lobbyId]
-	return ok
+func (m *LobbyManager) LobbyExists(lobbyId string) (*GameLobby, bool) {
+	l, ok := m.Lobbies[lobbyId]
+	return l, ok
 }

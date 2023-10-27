@@ -13,10 +13,11 @@ templ LobbyPage(connectionString, lobbyId, username string) {
         </div>
         <!-- Player details -->
         <div class="row-start-2 row-end-3 col-span-3 bg-white p-3 rounded-md">
-            <div id="player_details" class="bg-green-300">
+            <div class="mb-10">
                 <h2 class="text-xl font-bold">Players: </h2>
+                <div id="player_details" class="flex flex-col gap-y-3"></div>
             </div>
-            <div class="flex gap-5">
+            <div class="flex gap-5 justify-center mt-5 bg-orange-400">
                 {! components.PlayerColorComponent("green") }
                 {! components.PlayerColorComponent("blue") }
                 {! components.PlayerColorComponent("red") }

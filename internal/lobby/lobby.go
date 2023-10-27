@@ -1,13 +1,19 @@
 package lobby
 
 import (
-	"bytes"
-	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 
-	"github.com/spacesedan/go-sequence/internal/components"
 	"github.com/spacesedan/go-sequence/internal/game"
+)
+
+const (
+	lobbyEventJoin        = "join_lobby"
+	lobbyEventLeft        = "left_lobby"
+	lobbyEventChatMessage = "chat_message"
+	lobbyEventChooseColor = "choose_color"
+	lobbyEventSyncColors  = "sync_colors"
 )
 
 type GameLobby struct {
@@ -35,6 +41,7 @@ type GameLobby struct {
 // Create a new lobby
 func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 	var lobbyId string
+	colors := make(map[string]bool, 3)
 
 	if len(id) != 0 {
 		lobbyId = id[0]
@@ -43,7 +50,6 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 	}
 	m.logger.Info("Creating a new game lobby", slog.String("lobbyId", lobbyId))
 
-	colors := make(map[string]bool, 3)
 	colors["red"] = true
 	colors["blue"] = true
 	colors["green"] = true
@@ -51,11 +57,11 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 	l := &GameLobby{
 		ID:              lobbyId,
 		Game:            game.NewGameService(),
-		Players:         make(map[string]*WsConnection),
+		Players:         make(map[string]*WsConnection, settings.NumOfPlayers),
 		Settings:        settings,
 		AvailableColors: colors,
 
-		Sessions:       make(map[*WsConnection]struct{}),
+		Sessions:       make(map[*WsConnection]struct{}, settings.NumOfPlayers),
 		PayloadChan:    make(chan WsPayload),
 		RegisterChan:   make(chan *WsConnection),
 		UnregisterChan: make(chan *WsConnection),
@@ -73,53 +79,56 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 
 func (l *GameLobby) Listen() {
 	var response WsResponse
+
+	l.logger.Info("Listening for incoming payloads", slog.String("lobby_id", l.ID))
+
 	for {
 		select {
+		// case when a session connects to the ws server
 		case session := <-l.RegisterChan:
 			l.logger.Info("[REGISTERING]", slog.String("user", session.Username))
-			l.Sessions[session] = struct{}{}
+			l.Players[session.Username] = session
 
+			// case when a session connection is closed
 		case session := <-l.UnregisterChan:
 			l.logger.Info("[UNREGISTERING]", slog.String("user", session.Username))
-			if _, ok := l.Sessions[session]; ok {
-				delete(l.Sessions, session)
+			if _, ok := l.Players[session.Username]; ok {
+				delete(l.Players, session.Username)
 				close(session.Send)
 			}
 
-		// handle the incomign payload
+		// case when sessions send payloads to the lobby
 		case payload := <-l.PayloadChan:
 			switch payload.Action {
-			case "join_lobby":
+			case lobbyEventJoin:
 				response.Action = "join_lobby"
 				response.Message = fmt.Sprintf("%v joined", payload.SenderSession.Username)
 				response.SkipSender = true
 				response.PayloadSession = payload.SenderSession
+				response.ConnectedUsers = l.getPlayerUsernames()
 				l.broadcastResponse(response)
 
-			case "left_lobby":
+			case lobbyEventLeft:
 				response.Action = "left"
 				response.Message = fmt.Sprintf("%v left", payload.SenderSession.Username)
 				response.SkipSender = true
 				response.PayloadSession = payload.SenderSession
 				l.broadcastResponse(response)
 
-			case "chat_message":
+			case lobbyEventChatMessage:
 				response.Action = "new_chat_message"
 				response.Message = payload.Message
 				response.SkipSender = false
 				response.PayloadSession = payload.SenderSession
 				l.broadcastResponse(response)
 
-			case "choose_color":
+			case lobbyEventChooseColor:
 				response.PayloadSession = payload.SenderSession
 				response.Message = payload.Message
 				response.SkipSender = false
 				response.Action = "choose_color"
-				fmt.Println("Choosing color", l.AvailableColors)
 				l.broadcastResponse(response)
 
-			case "sync_colors":
-				l.syncColors()
 			}
 
 			// add some logic to close the lobby if there are no players
@@ -128,22 +137,19 @@ func (l *GameLobby) Listen() {
 	}
 }
 
-func (l *GameLobby) syncColors() {
-	var b bytes.Buffer
-	for color, available := range l.AvailableColors {
-		if available {
-			components.PlayerColorComponent(color).Render(context.Background(), &b)
-		} else {
-			components.PlayerColorUnavailableComponent(color).Render(context.Background(), &b)
-		}
-		l.broadcastResponse(WsResponse{Action: "sync_colors", Message: b.String()})
-		b.Reset()
+func (l *GameLobby) getPlayerUsernames() []string {
+	var usernames []string
+	for u := range l.Players {
+		usernames = append(usernames, u)
 	}
 
+	sort.Strings(usernames)
+
+	return usernames
 }
 
 func (l *GameLobby) broadcastResponse(response WsResponse) {
-	for session := range l.Sessions {
+	for _, session := range l.Players {
 		session.Send <- response
 	}
 }

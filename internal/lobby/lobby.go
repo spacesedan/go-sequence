@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/spacesedan/go-sequence/internal/game"
+	"github.com/spacesedan/go-sequence/internal/lobby"
 )
 
 const (
@@ -88,6 +89,12 @@ func (m *LobbyManager) CloseLobby(id string) {
 	m.lobbiesMu.Lock()
 	defer m.lobbiesMu.Unlock()
 
+    lobby := m.Lobbies[id]
+    close(lobby.PayloadChan)
+    close(lobby.ReadyChan)
+    close(lobby.RegisterChan)
+    close(lobby.UnregisterChan)
+
 	m.logger.Info("Closing Lobby", slog.String("lobby_id", id))
 
 	delete(m.Lobbies, id)
@@ -117,18 +124,23 @@ func (l *GameLobby) Listen() {
 				close(session.Send)
 			}
 
+
+        // gets sessions that are ready to start the game
 		case session := <-l.ReadyChan:
 			l.logger.Info("Player ready",
 				slog.String("lobby_id", l.ID),
 				slog.String("username", session.Username))
 
+            // allReady used to start the game
 			allReady := true
 			for _, s := range l.Players {
+                // if any player is not ready allReady is false
 				if !s.IsReady {
 					l.logger.Info("Player not ready", slog.String("username", s.Username))
 					allReady = false
 				}
 			}
+            // once all players are ready start the game
 			if allReady {
 				response.Action = "start_game"
 				l.broadcastResponse(response)
@@ -175,8 +187,6 @@ func (l *GameLobby) Listen() {
 
 			}
 
-		// Check every 10 seconds to make sure there is a player in the lobby
-		// if there isnt close the lobby
 		case <-time.After(5 * time.Second):
 			if len(l.Players) == 0 {
 				return

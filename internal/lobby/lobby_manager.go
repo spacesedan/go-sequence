@@ -75,6 +75,7 @@ func (m *LobbyManager) Run() {
 			close(lobby.PayloadChan)
 			close(lobby.RegisterChan)
 			close(lobby.UnregisterChan)
+            close(lobby.ReadyChan)
 		}
 		close(m.RegisterChan)
 		close(m.Broadcast)

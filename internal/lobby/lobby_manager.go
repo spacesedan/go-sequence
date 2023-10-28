@@ -72,10 +72,7 @@ func generateUniqueLobbyId() string {
 func (m *LobbyManager) Run() {
 	defer func() {
 		for _, lobby := range m.Lobbies {
-			close(lobby.PayloadChan)
-			close(lobby.RegisterChan)
-			close(lobby.UnregisterChan)
-            close(lobby.ReadyChan)
+            m.CloseLobby(lobby.ID)
 		}
 		close(m.RegisterChan)
 		close(m.Broadcast)

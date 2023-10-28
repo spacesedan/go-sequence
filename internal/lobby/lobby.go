@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/spacesedan/go-sequence/internal/game"
-	"github.com/spacesedan/go-sequence/internal/lobby"
 )
 
 const (
@@ -18,6 +17,13 @@ const (
 	lobbyEventSyncColors     = "sync_colors"
 	lobbyEventSetReadyStatus = "set_ready_status"
 )
+
+type PlayerState struct {
+    LobbyId string
+    Username string
+    Color string
+    Ready bool
+}
 
 type GameLobby struct {
 	// game data

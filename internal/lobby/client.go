@@ -62,7 +62,7 @@ func (s *WsConnection) ReadPump() {
 		_, lobbyExists := s.LobbyManager.LobbyExists(s.LobbyID)
 		if lobbyExists {
 			payload.SenderSession = s
-			s.LobbyManager.logger.Info("[OUTGOING]", slog.Any("payload", payload))
+			s.LobbyManager.logger.Info("[PAYLOAD]", slog.Any("payload", payload))
 			s.Lobby.PayloadChan <- payload
 		} else {
 			break
@@ -165,10 +165,10 @@ func (s *WsConnection) WritePump() {
 						components.ToastWSComponent(title, content).Render(context.Background(), &b)
 						s.sendResponse(b.String())
 						b.Reset()
-                        continue
+						continue
 					}
 					s.IsReady = true
-                    s.Lobby.ReadyChan <- s
+					s.Lobby.ReadyChan <- s
 				}
 
 				components.PlayerDetailsColored(
@@ -183,12 +183,12 @@ func (s *WsConnection) WritePump() {
 				}
 				b.Reset()
 
-            case "start_game":
-                s.Lobby.logger.Info("Starting game")
-                views.Game(createWebsocketConnectionString(s.Lobby.ID)).Render(context.Background(), &b)
-                fmt.Printf("%v\n", b.String())
-                s.sendResponse(b.String())
-                b.Reset()
+			case "start_game":
+				s.Lobby.logger.Info("Starting game")
+				views.Game(createWebsocketConnectionString(s.Lobby.ID)).Render(context.Background(), &b)
+				fmt.Printf("%v\n", b.String())
+				s.sendResponse(b.String())
+				b.Reset()
 
 			default:
 				fmt.Printf("\n%#v\n", response)
@@ -208,6 +208,7 @@ func (s *WsConnection) WritePump() {
 // setColor sets the Player color
 func (s *WsConnection) setColor(response WsResponse) {
 	if response.PayloadSession == s {
+		s.Lobby.Players[s.Username].Color = response.Message
 		s.Color = response.Message
 		s.Lobby.AvailableColors[s.Color] = false
 	}
@@ -264,7 +265,6 @@ func generateUserAvatar(username string, size int) string {
 
 	return u.String()
 }
-
 
 func createWebsocketConnectionString(lobbyId string) string {
 	u := url.URL{

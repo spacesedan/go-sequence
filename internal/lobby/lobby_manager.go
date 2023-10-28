@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"math/rand"
 	"sync"
+
+	"github.com/nitishm/go-rejson/v4"
 )
 
 const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -17,9 +19,9 @@ type WsResponse struct {
 }
 
 type WsPayload struct {
-	Action        string            `json:"action"`
-	Message       string            `json:"message"`
-	SenderSession *WsConnection     `json:"-"`
+	Action        string        `json:"action"`
+	Message       string        `json:"message"`
+	SenderSession *WsConnection `json:"-"`
 }
 
 type Settings struct {
@@ -29,7 +31,9 @@ type Settings struct {
 }
 
 type LobbyManager struct {
-	logger         *slog.Logger
+	logger           *slog.Logger
+	redisJSONHandler *rejson.Handler
+
 	lobbiesMu      sync.Mutex
 	Lobbies        map[string]*GameLobby
 	Sessions       map[*WsConnection]struct{}
@@ -39,7 +43,7 @@ type LobbyManager struct {
 	UnregisterChan chan *WsConnection
 }
 
-func NewLobbyManager(l *slog.Logger) *LobbyManager {
+func NewLobbyManager(r *rejson.Handler, l *slog.Logger) *LobbyManager {
 	devSettings := Settings{
 		NumOfPlayers: 2,
 		MaxHandSize:  7,
@@ -52,7 +56,9 @@ func NewLobbyManager(l *slog.Logger) *LobbyManager {
 		UnregisterChan: make(chan *WsConnection),
 		Broadcast:      make(chan WsResponse),
 		Sessions:       make(map[*WsConnection]struct{}),
-		logger:         l,
+
+		logger:           l,
+		redisJSONHandler: r,
 	}
 
 	lm.NewGameLobby(devSettings, "ASDA")
@@ -72,7 +78,7 @@ func generateUniqueLobbyId() string {
 func (m *LobbyManager) Run() {
 	defer func() {
 		for _, lobby := range m.Lobbies {
-            m.CloseLobby(lobby.ID)
+			m.CloseLobby(lobby.ID)
 		}
 		close(m.RegisterChan)
 		close(m.Broadcast)

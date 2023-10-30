@@ -118,7 +118,7 @@ func newServer(sc ServerConfig) (*http.Server, error) {
 	sessionManager.Lifetime = 24 * time.Hour
 
 	// start services
-	lm := lobby.NewLobbyManager(sc.redisJSONHandler, sc.logger)
+	lm := lobby.NewLobbyManager(sc.redisPool, sc.logger)
 	go lm.Run()
 
 	// Register handlers

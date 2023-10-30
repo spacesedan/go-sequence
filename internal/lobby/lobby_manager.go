@@ -5,13 +5,13 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/nitishm/go-rejson/v4"
+	"github.com/gomodule/redigo/redis"
 )
 
 const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type WsResponse struct {
-	Action         string        `json:"action"`
+	Action         ResponseEvent `json:"action"`
 	Message        string        `json:"message"`
 	SkipSender     bool          `json:"-"`
 	PayloadSession *WsConnection `json:"-"`
@@ -19,7 +19,7 @@ type WsResponse struct {
 }
 
 type WsPayload struct {
-	Action        string        `json:"action"`
+	Action        PayloadEvent        `json:"action"`
 	Message       string        `json:"message"`
 	SenderSession *WsConnection `json:"-"`
 }
@@ -31,8 +31,8 @@ type Settings struct {
 }
 
 type LobbyManager struct {
-	logger           *slog.Logger
-	redisJSONHandler *rejson.Handler
+	logger    *slog.Logger
+	redisPool *redis.Pool
 
 	lobbiesMu      sync.Mutex
 	Lobbies        map[string]*GameLobby
@@ -43,7 +43,7 @@ type LobbyManager struct {
 	UnregisterChan chan *WsConnection
 }
 
-func NewLobbyManager(r *rejson.Handler, l *slog.Logger) *LobbyManager {
+func NewLobbyManager(r *redis.Pool, l *slog.Logger) *LobbyManager {
 	devSettings := Settings{
 		NumOfPlayers: 2,
 		MaxHandSize:  7,
@@ -57,8 +57,8 @@ func NewLobbyManager(r *rejson.Handler, l *slog.Logger) *LobbyManager {
 		Broadcast:      make(chan WsResponse),
 		Sessions:       make(map[*WsConnection]struct{}),
 
-		logger:           l,
-		redisJSONHandler: r,
+		logger:    l,
+		redisPool: r,
 	}
 
 	lm.NewGameLobby(devSettings, "ASDA")

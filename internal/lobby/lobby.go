@@ -1,24 +1,13 @@
 package lobby
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sort"
 	"time"
 
-	"github.com/gomodule/redigo/redis"
 	"github.com/nitishm/go-rejson/v4"
 	"github.com/spacesedan/go-sequence/internal/game"
-)
-
-const (
-	lobbyEventJoin           = "join_lobby"
-	lobbyEventLeft           = "left_lobby"
-	lobbyEventChatMessage    = "chat_message"
-	lobbyEventChooseColor    = "choose_color"
-	lobbyEventSyncColors     = "sync_colors"
-	lobbyEventSetReadyStatus = "set_ready_status"
 )
 
 type PlayerState struct {
@@ -34,7 +23,7 @@ type GameLobby struct {
 	Game            game.GameService
 	AvailableColors map[string]bool
 	Settings        Settings
-	Players         map[string]*PlayerState
+	Players         map[string]struct{}
 	Sessions        map[*WsConnection]struct{}
 
 	// connection stuff
@@ -45,6 +34,8 @@ type GameLobby struct {
 	RegisterChan chan *WsConnection
 	// unregisters players from the lobby
 	UnregisterChan chan *WsConnection
+
+	lobbyState *LobbyState
 
 	//
 	lobbyManager     *LobbyManager
@@ -74,7 +65,7 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 	l := &GameLobby{
 		ID:              lobbyId,
 		Game:            game.NewGameService(),
-		Players:         make(map[string]*PlayerState, settings.NumOfPlayers),
+		Players:         make(map[string]struct{}, settings.NumOfPlayers),
 		Settings:        settings,
 		AvailableColors: colors,
 
@@ -84,9 +75,9 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 		RegisterChan:   make(chan *WsConnection, settings.NumOfPlayers),
 		UnregisterChan: make(chan *WsConnection, settings.NumOfPlayers),
 
-		lobbyManager:     m,
-		logger:           m.logger,
-		redisJSONHandler: m.redisJSONHandler,
+		lobbyManager: m,
+		lobbyState:   NewLobbyState(m.redisPool, m.logger),
+		logger:       m.logger,
 	}
 
 	m.Lobbies[lobbyId] = l
@@ -128,24 +119,21 @@ func (l *GameLobby) Listen() {
 		case session := <-l.RegisterChan:
 			l.logger.Info("[REGISTERING]", slog.String("user", session.Username))
 			l.Sessions[session] = struct{}{}
-			l.Players[session.Username] =
-				&PlayerState{
-					Username: session.Username,
-					LobbyId:  l.ID,
+			l.Players[session.Username] = struct{}{}
+
+			// Set the player in the lobby state
+			ps, _ := l.lobbyState.GetPlayer(l.ID, session.Username)
+			if ps == nil {
+				l.logger.Info("player state not found creating a new record", slog.String("username", session.Username))
+				err := l.lobbyState.SetPlayer(
+					l.ID,
+					session,
+				)
+				if err != nil {
+					l.logger.Error("Something went wrong", slog.String("err", err.Error()))
 				}
 
-				// redis things
-			err := l.setPlayerJSON(
-				session,
-				&PlayerState{
-					Username: session.Username,
-					LobbyId:  l.ID,
-				})
-			if err != nil {
-				l.logger.Error("Something went wrong", slog.String("err", err.Error()))
 			}
-			ps, _ := l.getPlayerJSON(session)
-			fmt.Printf("[PLAYER] %#v\n", ps)
 
 			// case when a session connection is closed
 		case session := <-l.UnregisterChan:
@@ -173,44 +161,44 @@ func (l *GameLobby) Listen() {
 			}
 			// once all players are ready start the game
 			if allReady {
-				response.Action = "start_game"
+                response.Action = StartGameResponseEvent
 				l.broadcastResponse(response)
 			}
 
 		// case when sessions send payloads to the lobby
 		case payload := <-l.PayloadChan:
 			switch payload.Action {
-			case lobbyEventJoin:
-				response.Action = "join_lobby"
+			case JoinPayloadEvent:
+				response.Action = JoinResponseEvent
 				response.Message = fmt.Sprintf("%v joined", payload.SenderSession.Username)
 				response.SkipSender = true
 				response.PayloadSession = payload.SenderSession
 				response.ConnectedUsers = l.getPlayerUsernames()
 				l.broadcastResponse(response)
 
-			case lobbyEventLeft:
-				response.Action = "left"
+			case LeavePayloadEvent:
+				response.Action = LeftResponseEvent
 				response.Message = fmt.Sprintf("%v left", payload.SenderSession.Username)
 				response.SkipSender = true
 				response.PayloadSession = payload.SenderSession
 				l.broadcastResponse(response)
 
-			case lobbyEventChatMessage:
-				response.Action = "new_chat_message"
+			case ChatPayloadEvent:
+				response.Action = NewMessageResponseEvent
 				response.Message = payload.Message
 				response.SkipSender = false
 				response.PayloadSession = payload.SenderSession
 				l.broadcastResponse(response)
 
-			case lobbyEventChooseColor:
+			case ChooseColorPayloadEvent:
+                response.Action = ChooseColorResponseEvent
 				response.PayloadSession = payload.SenderSession
 				response.Message = payload.Message
 				response.SkipSender = false
-				response.Action = "choose_color"
 				l.broadcastResponse(response)
 
-			case lobbyEventSetReadyStatus:
-				response.Action = "set_ready_status"
+			case SetReadyStatusPayloadEvent:
+				response.Action = SetReadyStatusResponseEvent
 				response.Message = payload.Message
 				response.PayloadSession = payload.SenderSession
 				response.SkipSender = false
@@ -219,9 +207,6 @@ func (l *GameLobby) Listen() {
 			}
 
 		case <-t.C:
-			l.logger.Info("Checking for players",
-				slog.String("lobby_id", l.ID),
-				slog.Int("number of connected players", len(l.Players)))
 			if len(l.Players) == 0 {
 				return
 			}
@@ -245,39 +230,4 @@ func (l *GameLobby) broadcastResponse(response WsResponse) {
 	for session := range l.Sessions {
 		session.Send <- response
 	}
-}
-
-func (l *GameLobby) redisKey(s *WsConnection) string {
-	return fmt.Sprintf("lobby_id-%v|username-%v", l.ID, s.Username)
-}
-
-func (l *GameLobby) setPlayerJSON(s *WsConnection, ps *PlayerState) error {
-	l.logger.Info("Setting player state to cache")
-	res, err := l.redisJSONHandler.JSONSet(l.redisKey(s), ".", ps)
-	if err != nil {
-		return err
-	}
-
-	if res.(string) == "OK" {
-		l.logger.Info("Successfully set to cache")
-	} else {
-		l.logger.Info("Failed to cache")
-	}
-	return nil
-}
-
-func (l *GameLobby) getPlayerJSON(s *WsConnection) (*PlayerState, error) {
-	var ps *PlayerState
-
-	pj, err := redis.Bytes(l.redisJSONHandler.JSONGet(l.redisKey(s), "."))
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(pj, &ps)
-	if err != nil {
-		return nil, err
-	}
-
-	return ps, nil
 }

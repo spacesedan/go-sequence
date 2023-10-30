@@ -83,6 +83,13 @@ func (s *WsConnection) WritePump() {
 	for {
 		select {
 		case response, ok := <-s.Send:
+            // access to the player state associated with the session
+			playerState, err := s.Lobby.lobbyState.GetPlayer(s.Lobby.ID, s.Username)
+            if err != nil {
+                return
+            }
+
+            s.Lobby.logger.Info("Player state", slog.Any("state", playerState))
 			if !ok {
 				s.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
@@ -90,7 +97,7 @@ func (s *WsConnection) WritePump() {
 			s.LobbyManager.logger.Info("[INCOMING]", slog.Any("response", response))
 			switch response.Action {
 
-			case "join_lobby":
+			case JoinResponseEvent:
 				if response.PayloadSession != s {
 					components.PlayerStatus(response.Message).Render(context.Background(), &b)
 					if err := s.sendResponse(b.String()); err != nil {
@@ -99,15 +106,13 @@ func (s *WsConnection) WritePump() {
 					}
 				}
 				b.Reset()
-
 				components.PlayerDetails(response.ConnectedUsers).Render(context.Background(), &b)
 				if err := s.sendResponse(b.String()); err != nil {
 					return
 				}
-
 				b.Reset()
 
-			case "new_chat_message":
+			case NewMessageResponseEvent:
 				alt := fmt.Sprintf("avatar image for %v", s.Username)
 
 				if response.PayloadSession == s {
@@ -130,7 +135,7 @@ func (s *WsConnection) WritePump() {
 
 				b.Reset()
 
-			case "choose_color":
+			case ChooseColorResponseEvent:
 				if s.Color == "" {
 					s.setColor(response)
 				} else {
@@ -149,7 +154,7 @@ func (s *WsConnection) WritePump() {
 				}
 				b.Reset()
 
-			case "left":
+			case LeftResponseEvent:
 				components.PlayerStatus(response.Message).Render(context.Background(), &b)
 				if err := s.sendResponse(b.String()); err != nil {
 					fmt.Println("[ACTION] left", err.Error())
@@ -157,7 +162,8 @@ func (s *WsConnection) WritePump() {
 				}
 
 				b.Reset()
-			case "set_ready_status":
+
+			case SetReadyStatusResponseEvent:
 				if response.PayloadSession == s {
 					if s.Color == "" {
 						title := "Missing player color"
@@ -167,7 +173,6 @@ func (s *WsConnection) WritePump() {
 						b.Reset()
 						continue
 					}
-					s.IsReady = true
 					s.Lobby.ReadyChan <- s
 				}
 
@@ -183,7 +188,7 @@ func (s *WsConnection) WritePump() {
 				}
 				b.Reset()
 
-			case "start_game":
+			case StartGameResponseEvent:
 				s.Lobby.logger.Info("Starting game")
 				views.Game(createWebsocketConnectionString(s.Lobby.ID)).Render(context.Background(), &b)
 				fmt.Printf("%v\n", b.String())
@@ -208,7 +213,6 @@ func (s *WsConnection) WritePump() {
 // setColor sets the Player color
 func (s *WsConnection) setColor(response WsResponse) {
 	if response.PayloadSession == s {
-		s.Lobby.Players[s.Username].Color = response.Message
 		s.Color = response.Message
 		s.Lobby.AvailableColors[s.Color] = false
 	}

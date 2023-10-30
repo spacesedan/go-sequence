@@ -2,7 +2,7 @@ build:
 	@go build  -o bin/server ./cmd/rest/main.go
 	@./bin/server
 
-generate:
+air:
 	air
 
 watch-tw:
@@ -18,4 +18,4 @@ bundle:
 	npm run build
 
 watch:
-	make -j4 generate watch-tw watch-bundle
+	make -j5 air watch-bundle watch-tw

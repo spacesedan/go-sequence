@@ -6,16 +6,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/nitishm/go-rejson/v4"
 	"github.com/spacesedan/go-sequence/internal/game"
 )
-
-type PlayerState struct {
-	LobbyId  string `json:"lobby_id"`
-	Username string `json:"username"`
-	Color    string `json:"color"`
-	Ready    bool   `json:"ready"`
-}
 
 type GameLobby struct {
 	// game data
@@ -23,7 +15,7 @@ type GameLobby struct {
 	Game            game.GameService
 	AvailableColors map[string]bool
 	Settings        Settings
-	Players         map[string]struct{}
+	Players         map[string]*PlayerState
 	Sessions        map[*WsConnection]struct{}
 
 	// connection stuff
@@ -36,11 +28,11 @@ type GameLobby struct {
 	UnregisterChan chan *WsConnection
 
 	lobbyState *LobbyState
+	lobbyRepo  *LobbyRepo
 
 	//
-	lobbyManager     *LobbyManager
-	logger           *slog.Logger
-	redisJSONHandler *rejson.Handler
+	lobbyManager *LobbyManager
+	logger       *slog.Logger
 }
 
 // Create a new lobby
@@ -65,7 +57,7 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 	l := &GameLobby{
 		ID:              lobbyId,
 		Game:            game.NewGameService(),
-		Players:         make(map[string]struct{}, settings.NumOfPlayers),
+		Players:         make(map[string]*PlayerState, settings.NumOfPlayers),
 		Settings:        settings,
 		AvailableColors: colors,
 
@@ -76,11 +68,13 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 		UnregisterChan: make(chan *WsConnection, settings.NumOfPlayers),
 
 		lobbyManager: m,
-		lobbyState:   NewLobbyState(m.redisPool, m.logger),
+		lobbyRepo:    NewLobbyRepo(m.redisPool, m.logger),
 		logger:       m.logger,
 	}
 
 	m.Lobbies[lobbyId] = l
+
+    l.lobbyRepo.SetLobby(l)
 
 	go l.Listen()
 
@@ -107,7 +101,7 @@ func (l *GameLobby) Listen() {
 	t := time.NewTicker(time.Second * 10)
 
 	defer func() {
-		l.lobbyManager.CloseLobby(l.ID)
+		l.lobbyManager.UnregisterChan <- l
 		t.Stop()
 	}()
 
@@ -117,15 +111,15 @@ func (l *GameLobby) Listen() {
 		select {
 		// case when a session connects to the ws server
 		case session := <-l.RegisterChan:
-			l.logger.Info("[REGISTERING]", slog.String("user", session.Username))
-			l.Sessions[session] = struct{}{}
-			l.Players[session.Username] = struct{}{}
+			l.logger.Info("lobby.Listen",
+				slog.Group("Registering player connection",
+					slog.String("lobby_id", l.ID),
+					slog.String("user", session.Username)))
 
-			// Set the player in the lobby state
-			ps, _ := l.lobbyState.GetPlayer(l.ID, session.Username)
+			ps, _ := l.lobbyRepo.GetPlayer(l.ID, session.Username)
 			if ps == nil {
 				l.logger.Info("player state not found creating a new record", slog.String("username", session.Username))
-				err := l.lobbyState.SetPlayer(
+				err := l.lobbyRepo.SetPlayer(
 					l.ID,
 					session,
 				)
@@ -135,9 +129,18 @@ func (l *GameLobby) Listen() {
 
 			}
 
+			l.Sessions[session] = struct{}{}
+			l.Players[session.Username] = ps
+
+			// Set the player in the lobby state
+
 			// case when a session connection is closed
 		case session := <-l.UnregisterChan:
-			l.logger.Info("[UNREGISTERING]", slog.String("user", session.Username))
+			l.logger.Info("lobby.Listen",
+				slog.Group("Unregistering player connection",
+					slog.String("lobby_id", l.ID),
+					slog.String("user", session.Username)))
+
 			if _, ok := l.Sessions[session]; ok {
 				delete(l.Sessions, session)
 				delete(l.Players, session.Username)
@@ -161,7 +164,7 @@ func (l *GameLobby) Listen() {
 			}
 			// once all players are ready start the game
 			if allReady {
-                response.Action = StartGameResponseEvent
+				response.Action = StartGameResponseEvent
 				l.broadcastResponse(response)
 			}
 
@@ -191,7 +194,7 @@ func (l *GameLobby) Listen() {
 				l.broadcastResponse(response)
 
 			case ChooseColorPayloadEvent:
-                response.Action = ChooseColorResponseEvent
+				response.Action = ChooseColorResponseEvent
 				response.PayloadSession = payload.SenderSession
 				response.Message = payload.Message
 				response.SkipSender = false
@@ -206,11 +209,18 @@ func (l *GameLobby) Listen() {
 
 			}
 
-		case <-t.C:
-			if len(l.Players) == 0 {
-				return
-			}
-
+		// for prod: if there are no players in the lobby the lobby will close
+		// after a certain time.
+		// case <-t.C:
+		// 	if len(l.Players) == 0 {
+		// 		l.logger.Info("lobby.Listen",
+		// 			slog.Group("triggering closing lobby",
+		// 				slog.String("reason", "no players in lobby"),
+		// 				slog.String("lobby_id", l.ID),
+		// 			))
+		// 		return
+		// 	}
+		//
 		}
 	}
 }

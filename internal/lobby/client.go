@@ -83,13 +83,13 @@ func (s *WsConnection) WritePump() {
 	for {
 		select {
 		case response, ok := <-s.Send:
-            // access to the player state associated with the session
-			playerState, err := s.Lobby.lobbyState.GetPlayer(s.Lobby.ID, s.Username)
-            if err != nil {
-                return
-            }
+			// access to the player state associated with the session
+			playerState, err := s.Lobby.lobbyRepo.GetPlayer(s.Lobby.ID, s.Username)
+			if err != nil {
+				return
+			}
 
-            s.Lobby.logger.Info("Player state", slog.Any("state", playerState))
+			s.Lobby.logger.Info("Player state", slog.Any("state", playerState))
 			if !ok {
 				s.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return

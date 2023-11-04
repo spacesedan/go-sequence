@@ -21,4 +21,3 @@ const (
 	SetReadyStatusResponseEvent               = "set_ready_status"
 	StartGameResponseEvent                    = "start_game"
 )
-

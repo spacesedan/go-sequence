@@ -19,7 +19,7 @@ type WsResponse struct {
 }
 
 type WsPayload struct {
-	Action        PayloadEvent        `json:"action"`
+	Action        PayloadEvent  `json:"action"`
 	Message       string        `json:"message"`
 	SenderSession *WsConnection `json:"-"`
 }
@@ -31,16 +31,15 @@ type Settings struct {
 }
 
 type LobbyManager struct {
-	logger    *slog.Logger
-	redisPool *redis.Pool
+	logger      *slog.Logger
+	redisPool   *redis.Pool
+	redisPubSub *redis.PubSubConn
 
 	lobbiesMu      sync.Mutex
 	Lobbies        map[string]*GameLobby
 	Sessions       map[*WsConnection]struct{}
-	WsPayloadChan  chan WsPayload
-	Broadcast      chan WsResponse
-	RegisterChan   chan *WsConnection
-	UnregisterChan chan *WsConnection
+	RegisterChan   chan *GameLobby
+	UnregisterChan chan *GameLobby
 }
 
 func NewLobbyManager(r *redis.Pool, l *slog.Logger) *LobbyManager {
@@ -51,15 +50,18 @@ func NewLobbyManager(r *redis.Pool, l *slog.Logger) *LobbyManager {
 
 	lm := &LobbyManager{
 		Lobbies:        make(map[string]*GameLobby),
-		WsPayloadChan:  make(chan WsPayload),
-		RegisterChan:   make(chan *WsConnection),
-		UnregisterChan: make(chan *WsConnection),
-		Broadcast:      make(chan WsResponse),
+		RegisterChan:   make(chan *GameLobby),
+		UnregisterChan: make(chan *GameLobby),
 		Sessions:       make(map[*WsConnection]struct{}),
 
-		logger:    l,
-		redisPool: r,
+		logger:      l,
+		redisPool:   r,
+		redisPubSub: &redis.PubSubConn{Conn: r.Get()},
 	}
+
+    r.Get().Do("PUBLISH", "poop", "yo")
+
+    lm.redisPubSub.Subscribe("poop")
 
 	lm.NewGameLobby(devSettings, "ASDA")
 	lm.NewGameLobby(devSettings, "JKLK")
@@ -81,15 +83,15 @@ func (m *LobbyManager) Run() {
 			m.CloseLobby(lobby.ID)
 		}
 		close(m.RegisterChan)
-		close(m.Broadcast)
 		close(m.UnregisterChan)
-		close(m.WsPayloadChan)
 	}()
 	for {
 		select {
-		case _ = <-m.RegisterChan:
-		case _ = <-m.UnregisterChan:
-		case _ = <-m.WsPayloadChan:
+		case lobby := <-m.RegisterChan:
+			m.Lobbies[lobby.ID] = lobby
+		case lobby := <-m.UnregisterChan:
+			m.CloseLobby(lobby.ID)
+			delete(m.Lobbies, lobby.ID)
 		}
 	}
 }

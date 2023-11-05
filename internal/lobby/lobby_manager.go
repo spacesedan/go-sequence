@@ -14,14 +14,14 @@ type WsResponse struct {
 	Action         ResponseEvent `json:"action"`
 	Message        string        `json:"message"`
 	SkipSender     bool          `json:"-"`
-	PayloadSession *WsConnection `json:"-"`
+	PayloadSession *WsClient     `json:"-"`
 	ConnectedUsers []string      `json:"-"`
 }
 
 type WsPayload struct {
-	Action        PayloadEvent  `json:"action"`
-	Message       string        `json:"message"`
-	SenderSession *WsConnection `json:"-"`
+	Action        PayloadEvent `json:"action"`
+	Message       string       `json:"message"`
+	SenderSession *WsClient    `json:"-"`
 }
 
 type Settings struct {
@@ -31,37 +31,32 @@ type Settings struct {
 }
 
 type LobbyManager struct {
-	logger      *slog.Logger
-	redisPool   *redis.Pool
-	redisPubSub *redis.PubSubConn
+	logger    *slog.Logger
+	redisPool *redis.Pool
 
 	lobbiesMu      sync.Mutex
 	Lobbies        map[string]*GameLobby
-	Sessions       map[*WsConnection]struct{}
+	Sessions       map[*WsClient]struct{}
 	RegisterChan   chan *GameLobby
 	UnregisterChan chan *GameLobby
 }
 
 func NewLobbyManager(r *redis.Pool, l *slog.Logger) *LobbyManager {
+	l.Info("NewLobbyManager", slog.String("reason", "starting up lobby manager"))
 	devSettings := Settings{
 		NumOfPlayers: 2,
 		MaxHandSize:  7,
 	}
 
 	lm := &LobbyManager{
+		logger:    l,
+		redisPool: r,
+
 		Lobbies:        make(map[string]*GameLobby),
 		RegisterChan:   make(chan *GameLobby),
 		UnregisterChan: make(chan *GameLobby),
-		Sessions:       make(map[*WsConnection]struct{}),
-
-		logger:      l,
-		redisPool:   r,
-		redisPubSub: &redis.PubSubConn{Conn: r.Get()},
+		Sessions:       make(map[*WsClient]struct{}),
 	}
-
-    r.Get().Do("PUBLISH", "poop", "yo")
-
-    lm.redisPubSub.Subscribe("poop")
 
 	lm.NewGameLobby(devSettings, "ASDA")
 	lm.NewGameLobby(devSettings, "JKLK")

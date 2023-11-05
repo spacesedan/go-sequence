@@ -22,7 +22,6 @@ func NewReJSONHandler(conn redis.Conn) reJSONHandler {
 	rh.SetRedigoClient(conn)
 
 	return reJSONHandler{rh}
-
 }
 
 // Current state ... are the players in the lobby still choosing thier colors,
@@ -54,6 +53,7 @@ type LobbyRepo struct {
 	logger *slog.Logger
 }
 
+// NewLobbyRepo creates a LobbyRepo instance to interact with the redis server
 func NewLobbyRepo(r *redis.Pool, l *slog.Logger) *LobbyRepo {
 	l.Info("lobby.NewLobbyRepo: created new lobby repo")
 	return &LobbyRepo{
@@ -64,14 +64,15 @@ func NewLobbyRepo(r *redis.Pool, l *slog.Logger) *LobbyRepo {
 
 type LobbyState struct {
 	CurrentState    CurrentState
-	Players         map[string]*PlayerState
+	Players         map[string]struct{}
 	ColorsAvailable map[string]bool
 	Settings        Settings
 }
 
+// SetLobby sets and updates the lobby state stored in the db using the lobby
 func (l *LobbyRepo) SetLobby(lobby *GameLobby) error {
 	l.logger.Info("lobbyRepo.SetLobby",
-		slog.Group("writing to cache",
+		slog.Group("writing lobby to db",
 			slog.String("lobby_id", lobby.ID)))
 
 	conn := l.redis.Get()
@@ -83,7 +84,7 @@ func (l *LobbyRepo) SetLobby(lobby *GameLobby) error {
 		}
 	}()
 
-	res, err := rh.JSONSet(lobbyKey(lobby.ID), ".", &LobbyState{
+	_, err := rh.JSONSet(lobbyKey(lobby.ID), ".", &LobbyState{
 		CurrentState:    Lobby,
 		Settings:        lobby.Settings,
 		ColorsAvailable: lobby.AvailableColors,
@@ -94,21 +95,57 @@ func (l *LobbyRepo) SetLobby(lobby *GameLobby) error {
 		return err
 	}
 
-	if res.(string) == "OK" {
-		l.logger.Info("Successfully set to cache")
-	} else {
-		l.logger.Info("Failed to cache")
-	}
-
 	return nil
 }
 
+// GetLobby gets a lobby from teh db using the lobby id
 func (l *LobbyRepo) GetLobby(lobby_id string) (*LobbyState, error) {
 	l.logger.Info("lobbyRepo.GetLobby",
-		slog.Group("reading from cache",
+		slog.Group("reading lobby from redis",
 			slog.String("lobby_id", lobby_id)))
 
-	return nil, nil
+	var lobbyState *LobbyState
+
+	conn := l.redis.Get()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	rh := NewReJSONHandler(conn)
+	lobbyJSON, err := redis.Bytes(rh.JSONGet(lobbyKey(lobby_id), "."))
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(lobbyJSON, &lobbyState)
+	if err != nil {
+		return nil, err
+	}
+
+	return lobbyState, nil
+}
+
+// DeleteLobby deletes a lobby from the db using the lobby id
+func (l *LobbyRepo) DeleteLobby(lobby_id string) error {
+	l.logger.Info("lobbyRepo.DeleteLobby",
+		slog.Group("deleting lobby from redis",
+			slog.String("lobby_id", lobby_id)))
+
+	conn := l.redis.Get()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	rh := NewReJSONHandler(conn)
+
+	if _, err := rh.JSONDel(lobbyKey(lobby_id), "."); err != nil {
+		return err
+	}
+	return nil
 }
 
 type PlayerState struct {
@@ -118,9 +155,10 @@ type PlayerState struct {
 	Ready    bool   `json:"ready"`
 }
 
-func (l *LobbyRepo) SetPlayer(lobby_id string, p *WsConnection) error {
+// SetPlayer sets and updates player data in the db
+func (l *LobbyRepo) SetPlayer(lobby_id string, p *WsClient) error {
 	l.logger.Info("lobbyRepo.SetPlayer",
-		slog.Group("writing player to cache",
+		slog.Group("writing player to db",
 			slog.String("player", p.Username)))
 
 	conn := l.redis.Get()
@@ -132,28 +170,24 @@ func (l *LobbyRepo) SetPlayer(lobby_id string, p *WsConnection) error {
 		}
 	}()
 
-	res, err := rh.JSONSet(playerKey(lobby_id, p.Username), ".", &PlayerState{
+	if _, err := rh.JSONSet(playerKey(lobby_id, p.Username), ".", &PlayerState{
 		Username: p.Username,
 		LobbyId:  lobby_id,
 		Color:    p.Color,
 		Ready:    p.IsReady,
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 
-	if res.(string) == "OK" {
-		l.logger.Info("Successfully set to cache")
-	} else {
-		l.logger.Info("Failed to cache")
-	}
 	return nil
 }
 
+// GetPlayer gets a player from the db using the lobby id and player username
 func (l *LobbyRepo) GetPlayer(lobby_id string, username string) (*PlayerState, error) {
-	l.logger.Info("Getting player from cache",
-		slog.String("lobby_id", lobby_id),
-		slog.String("username", username))
+	l.logger.Info("lobbyRepo.GetPlayer",
+		slog.Group("reading player from db",
+			slog.String("lobby_id", lobby_id),
+			slog.String("username", username)))
 
 	var ps *PlayerState
 	conn := l.redis.Get()
@@ -178,8 +212,12 @@ func (l *LobbyRepo) GetPlayer(lobby_id string, username string) (*PlayerState, e
 	return ps, nil
 }
 
+// GetMPlayers gets multiple players using lobby details
 func (l *LobbyRepo) GetMPlayers(gl *GameLobby) ([]*PlayerState, error) {
-	l.logger.Info("Getting all players from cache")
+	l.logger.Info("lobbyRepo.GetMPlayers",
+		slog.Group("reading all players from db for the lobby",
+			slog.String("lobby_id", gl.ID)))
+
 	var ps []*PlayerState
 	var playerKeys []string
 
@@ -218,7 +256,13 @@ func (l *LobbyRepo) GetMPlayers(gl *GameLobby) ([]*PlayerState, error) {
 
 }
 
-func (l *LobbyRepo) RemovePlayer(lobby_id string, username string) error {
+// DeletePlayer deletes a player from the db
+func (l *LobbyRepo) DeletePlayer(lobby_id string, username string) error {
+	l.logger.Info("lobbyRepo.DeletePlayer",
+		slog.Group("deleting player from db",
+			slog.String("lobby_id", lobby_id),
+			slog.String("username", username)))
+
 	conn := l.redis.Get()
 	defer func() {
 		err := conn.Close()
@@ -239,10 +283,12 @@ func (l *LobbyRepo) RemovePlayer(lobby_id string, username string) error {
 
 }
 
+// lobbyKey helper that returns a string used to associate the lobby in redis
 func lobbyKey(lobby_id string) string {
 	return fmt.Sprintf("lobby_id-%v.gamestate", lobby_id)
 }
 
+// playerKey helper that returns a string used to associate the player in redis
 func playerKey(lobby_id string, u string) string {
-	return fmt.Sprintf("lobby_id-%v|username-%v.gamestate", lobby_id, u)
+	return fmt.Sprintf("lobby_id-%v|username-%v.playerstate", lobby_id, u)
 }

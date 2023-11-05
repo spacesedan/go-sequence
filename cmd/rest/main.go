@@ -17,7 +17,6 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/gomodule/redigo/redis"
-	"github.com/nitishm/go-rejson/v4"
 	"github.com/spacesedan/go-sequence/cmd/internal"
 	"github.com/spacesedan/go-sequence/internal/handlers"
 	"github.com/spacesedan/go-sequence/internal/lobby"
@@ -29,7 +28,7 @@ func init() {
 }
 
 func main() {
-	gob.Register(lobby.WsConnection{})
+	gob.Register(lobby.WsClient{})
 
 	errC, err := run()
 	if err != nil {
@@ -43,24 +42,17 @@ func main() {
 }
 
 type ServerConfig struct {
-	address          string
-	logger           *slog.Logger
-	redisPool        *redis.Pool
-	redisJSONHandler *rejson.Handler
+	address   string
+	logger    *slog.Logger
+	redisPool *redis.Pool
 }
 
 func run() (<-chan error, error) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	logger.Info("Logger Active")
 
 	redisPool, err := internal.NewRedis()
 	if err != nil {
 		return nil, services.WrapErrorf(err, services.ErrorCodeUnknown, "internal.NewRedis")
-	}
-
-	rjHandler, err := internal.NewReJSONHandler(redisPool)
-	if err != nil {
-		return nil, services.WrapErrorf(err, services.ErrorCodeUnknown, "internal.NewReJSONHandler")
 	}
 
 	errC := make(chan error, 1)
@@ -71,10 +63,9 @@ func run() (<-chan error, error) {
 		syscall.SIGKILL)
 
 	serverConfig := ServerConfig{
-		address:          ":42069",
-		logger:           logger,
-		redisPool:        redisPool,
-		redisJSONHandler: rjHandler,
+		address:   ":42069",
+		logger:    logger,
+		redisPool: redisPool,
 	}
 
 	srv, _ := newServer(serverConfig)

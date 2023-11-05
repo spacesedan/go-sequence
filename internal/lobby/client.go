@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/url"
 	"time"
@@ -25,7 +24,7 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 )
 
-type WsConnection struct {
+type WsClient struct {
 	LobbyManager *LobbyManager
 	Lobby        *GameLobby
 	Send         chan WsResponse
@@ -37,9 +36,31 @@ type WsConnection struct {
 	IsReady bool
 }
 
-func (s *WsConnection) ReadPump() {
+func NewWsClient(ws *websocket.Conn, lm *LobbyManager, l *GameLobby, username, lobbyId string) *WsClient {
+	return &WsClient{
+		Conn:         ws,
+		Username:     username,
+		LobbyID:      lobbyId,
+		LobbyManager: lm,
+		Lobby:        l,
+		Send:         make(chan WsResponse),
+	}
+}
+
+func (s *WsClient) ReadPump() {
+	s.Lobby.logger.Info("wsClient.ReadPump",
+		slog.Group("starting readpump",
+			slog.String("lobby_id", s.Lobby.ID),
+			slog.String("usename", s.Username),
+		))
+
+	var payload WsPayload
+
 	defer func() {
-		s.LobbyManager.logger.Info("Read Pump closing", slog.String("username", s.Username))
+		s.Lobby.logger.Info("wsClient.ReadPump",
+			slog.Group("Read Pump closing",
+				slog.String("username", s.Username)))
+
 		s.Lobby.UnregisterChan <- s
 		s.Conn.Close()
 	}()
@@ -47,35 +68,52 @@ func (s *WsConnection) ReadPump() {
 	s.Conn.SetReadDeadline(time.Now().Add(pongWait))
 	s.Conn.SetPongHandler(func(string) error { s.Conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 
-	var payload WsPayload
-
 	for {
 		err := s.Conn.ReadJSON(&payload)
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("[ERROR] %v\n", err)
 			}
-			s.LobbyManager.logger.Error("[ERROR]", slog.Any("err", err.Error()))
-			break
+			s.LobbyManager.logger.Error("wsClient.ReadPump",
+				slog.Group("Error occrured, terminating readpump",
+					slog.String("reason", err.Error())))
+			return
 		}
 
 		_, lobbyExists := s.LobbyManager.LobbyExists(s.LobbyID)
 		if lobbyExists {
 			payload.SenderSession = s
-			s.LobbyManager.logger.Info("[PAYLOAD]", slog.Any("payload", payload))
+
+			s.LobbyManager.logger.Info("wsClient.ReadPump",
+				slog.Group("Sending",
+					slog.String("lobby_id", s.Lobby.ID),
+					slog.Any("payload", payload)))
+
 			s.Lobby.PayloadChan <- payload
 		} else {
-			break
+			s.Lobby.logger.Error("wsClient.ReadPump",
+				slog.Group("Error occured, teminating readpump",
+					slog.String("reason", "lobby not found")))
+
+			return
 		}
 	}
 
 }
 
-func (s *WsConnection) WritePump() {
+func (s *WsClient) WritePump() {
+	s.Lobby.logger.Info("wsClient.WritePump",
+		slog.Group("starting write pump",
+			slog.String("lobby_id", s.Lobby.ID),
+			slog.String("usename", s.Username),
+		))
+
 	var b bytes.Buffer
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
-		s.LobbyManager.logger.Info("Write Pump closing", slog.String("username", s.Username))
+		s.LobbyManager.logger.Info("wsClient.WritePump",
+			slog.Group("closing write pump",
+				slog.String("username", s.Username)))
+
 		ticker.Stop()
 		s.Conn.Close()
 	}()
@@ -83,18 +121,13 @@ func (s *WsConnection) WritePump() {
 	for {
 		select {
 		case response, ok := <-s.Send:
-			// access to the player state associated with the session
-			playerState, err := s.Lobby.lobbyRepo.GetPlayer(s.Lobby.ID, s.Username)
-			if err != nil {
-				return
-			}
-
-			s.Lobby.logger.Info("Player state", slog.Any("state", playerState))
 			if !ok {
 				s.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			s.LobbyManager.logger.Info("[INCOMING]", slog.Any("response", response))
+
+			// Subscribes to incoming messages from the client send channel based on
+			// the incoming response action
 			switch response.Action {
 
 			case JoinResponseEvent:
@@ -106,6 +139,7 @@ func (s *WsConnection) WritePump() {
 					}
 				}
 				b.Reset()
+
 				components.PlayerDetails(response.ConnectedUsers).Render(context.Background(), &b)
 				if err := s.sendResponse(b.String()); err != nil {
 					return
@@ -211,7 +245,7 @@ func (s *WsConnection) WritePump() {
 }
 
 // setColor sets the Player color
-func (s *WsConnection) setColor(response WsResponse) {
+func (s *WsClient) setColor(response WsResponse) {
 	if response.PayloadSession == s {
 		s.Color = response.Message
 		s.Lobby.AvailableColors[s.Color] = false
@@ -220,7 +254,7 @@ func (s *WsConnection) setColor(response WsResponse) {
 }
 
 // updateColor updates the player color and resets the previous color
-func (s *WsConnection) updateColor(response WsResponse) {
+func (s *WsClient) updateColor(response WsResponse) {
 	if response.PayloadSession == s {
 		if response.Message != s.Color {
 			color := s.Color
@@ -232,7 +266,7 @@ func (s *WsConnection) updateColor(response WsResponse) {
 }
 
 // sendResonse sends the response to the client
-func (s *WsConnection) sendResponse(msg string) error {
+func (s *WsClient) sendResponse(msg string) error {
 	w, err := s.Conn.NextWriter(websocket.TextMessage)
 	if err != nil {
 		return err

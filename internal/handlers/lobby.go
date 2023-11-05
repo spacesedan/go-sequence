@@ -52,7 +52,7 @@ func (lh *LobbyHandler) Register(m *chi.Mux) {
 }
 
 func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
-	lm.logger.Info("Connected to socket")
+	lm.logger.Info("lobbyHandler.Serve", slog.Group("connected to socker"))
 
 	lobbyId := r.URL.Query().Get("lobby-id")
 
@@ -77,14 +77,8 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("%#v\n", l.Settings)
 
-	session := &lobby.WsConnection{
-		Conn:         ws,
-		Username:     username,
-		LobbyID:      lobbyId,
-		LobbyManager: lm.LobbyManager,
-		Lobby:        l,
-		Send:         make(chan lobby.WsResponse),
-	}
+	ok = l.HasPlayer(username)
+	session := lobby.NewWsClient(ws, lm.LobbyManager, l, username, l.ID)
 
 	l.RegisterChan <- session
 
@@ -94,7 +88,6 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (lm *LobbyHandler) handleCreateGameLobby(w http.ResponseWriter, r *http.Request) {
-
 	// get the settings
 	numberOfPlayersString := r.FormValue("num_of_players")
 	maxHandSizeString := r.FormValue("max_hand_size")
@@ -114,7 +107,7 @@ func (lm *LobbyHandler) handleCreateGameLobby(w http.ResponseWriter, r *http.Req
 		MaxHandSize:  maxHandSize,
 	})
 
-    lm.logger.Info("New game lobby", slog.String("lobby-id", lobbyId))
+	lm.logger.Info("New game lobby", slog.String("lobby-id", lobbyId))
 
 	// Redirect to the lobby page after it has been created
 	w.Header().Set("HX-Redirect", fmt.Sprintf("/lobby/%s", lobbyId))

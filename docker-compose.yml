@@ -9,16 +9,6 @@ services:
       - 6379:6379
     volumes:
       - cache:/data
-
-  redis-commander:
-    container_name: redis-commander
-    hostname: redis-commander
-    image: ghcr.io/joeferner/redis-commander:latest
-    restart: always
-    environment:
-    - REDIS_HOSTS=local:cache:6379
-    ports:
-    - "8081:8081"
 volumes:
   cache:
     driver: local

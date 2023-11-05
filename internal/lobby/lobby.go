@@ -15,17 +15,21 @@ type GameLobby struct {
 	Game            game.GameService
 	AvailableColors map[string]bool
 	Settings        Settings
-	Players         map[string]*PlayerState
-	Sessions        map[*WsConnection]struct{}
+	Players         map[string]struct{}
+	Sessions        map[*WsClient]struct{}
 
 	// connection stuff
 	// gets the incoming messages from players
 	PayloadChan chan WsPayload
-	ReadyChan   chan *WsConnection
+	ReadyChan   chan *WsClient
 	// registers players to the lobby
-	RegisterChan chan *WsConnection
+	RegisterChan chan *WsClient
+	// reconnectes players to the lobby
+	ReconnectChan chan *WsClient
 	// unregisters players from the lobby
-	UnregisterChan chan *WsConnection
+	UnregisterChan chan *WsClient
+
+	abort chan struct{}
 
 	lobbyState *LobbyState
 	lobbyRepo  *LobbyRepo
@@ -48,7 +52,10 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 	} else {
 		lobbyId = generateUniqueLobbyId()
 	}
-	m.logger.Info("Creating a new game lobby", slog.String("lobbyId", lobbyId))
+
+	m.logger.Info("lobbyManager.NewGameLobby",
+		slog.Group("Creating new lobby",
+			slog.String("lobbyId", lobbyId)))
 
 	colors["red"] = true
 	colors["blue"] = true
@@ -57,16 +64,18 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 	l := &GameLobby{
 		ID:              lobbyId,
 		Game:            game.NewGameService(),
-		Players:         make(map[string]*PlayerState, settings.NumOfPlayers),
+		Players:         map[string]struct{}{},
 		Settings:        settings,
 		AvailableColors: colors,
 
-		Sessions:       make(map[*WsConnection]struct{}, settings.NumOfPlayers),
+		Sessions:       make(map[*WsClient]struct{}),
 		PayloadChan:    make(chan WsPayload),
-		ReadyChan:      make(chan *WsConnection, settings.NumOfPlayers),
-		RegisterChan:   make(chan *WsConnection, settings.NumOfPlayers),
-		UnregisterChan: make(chan *WsConnection, settings.NumOfPlayers),
+		ReadyChan:      make(chan *WsClient),
+		RegisterChan:   make(chan *WsClient),
+		ReconnectChan:  make(chan *WsClient),
+		UnregisterChan: make(chan *WsClient),
 
+		abort:        make(chan struct{}),
 		lobbyManager: m,
 		lobbyRepo:    NewLobbyRepo(m.redisPool, m.logger),
 		logger:       m.logger,
@@ -74,7 +83,7 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 
 	m.Lobbies[lobbyId] = l
 
-    l.lobbyRepo.SetLobby(l)
+	l.lobbyRepo.SetLobby(l)
 
 	go l.Listen()
 
@@ -91,13 +100,16 @@ func (m *LobbyManager) CloseLobby(id string) {
 	close(lobby.RegisterChan)
 	close(lobby.UnregisterChan)
 
-	m.logger.Info("Closing Lobby", slog.String("lobby_id", id))
+	lobby.lobbyRepo.DeleteLobby(lobby.ID)
+
+	m.logger.Info("lobbyManager.CloseLobby",
+		slog.Group("Closing Lobby",
+			slog.String("lobby_id", id)))
 
 	delete(m.Lobbies, id)
 }
 
 func (l *GameLobby) Listen() {
-	var response WsResponse
 	t := time.NewTicker(time.Second * 10)
 
 	defer func() {
@@ -105,124 +117,176 @@ func (l *GameLobby) Listen() {
 		t.Stop()
 	}()
 
-	l.logger.Info("Listening for incoming payloads", slog.String("lobby_id", l.ID))
+	l.logger.Info("lobby.Listen",
+		slog.Group("Listening for incoming payloads",
+			slog.String("lobby_id", l.ID)))
 
 	for {
 		select {
 		// case when a session connects to the ws server
 		case session := <-l.RegisterChan:
-			l.logger.Info("lobby.Listen",
-				slog.Group("Registering player connection",
-					slog.String("lobby_id", l.ID),
-					slog.String("user", session.Username)))
+			l.handleRegisterSession(session)
 
-			ps, _ := l.lobbyRepo.GetPlayer(l.ID, session.Username)
-			if ps == nil {
-				l.logger.Info("player state not found creating a new record", slog.String("username", session.Username))
-				err := l.lobbyRepo.SetPlayer(
-					l.ID,
-					session,
-				)
-				if err != nil {
-					l.logger.Error("Something went wrong", slog.String("err", err.Error()))
-				}
+		case session := <-l.ReconnectChan:
+			l.handlerReconnectingSession(session)
 
-			}
-
-			l.Sessions[session] = struct{}{}
-			l.Players[session.Username] = ps
-
-			// Set the player in the lobby state
-
-			// case when a session connection is closed
+		// case when a session connection is closed
 		case session := <-l.UnregisterChan:
-			l.logger.Info("lobby.Listen",
-				slog.Group("Unregistering player connection",
-					slog.String("lobby_id", l.ID),
-					slog.String("user", session.Username)))
+			l.handleUnregisterSession(session)
 
-			if _, ok := l.Sessions[session]; ok {
-				delete(l.Sessions, session)
-				delete(l.Players, session.Username)
-				close(session.Send)
-			}
-
-			// gets sessions that are ready to start the game
+		// gets sessions that are ready to start the game
 		case session := <-l.ReadyChan:
-			l.logger.Info("Player ready",
-				slog.String("lobby_id", l.ID),
-				slog.String("username", session.Username))
-
-			// allReady used to start the game
-			allReady := true
-			for s := range l.Sessions {
-				// if any player is not ready allReady is false
-				if !s.IsReady {
-					l.logger.Info("Player not ready", slog.String("username", s.Username))
-					allReady = false
-				}
-			}
-			// once all players are ready start the game
-			if allReady {
-				response.Action = StartGameResponseEvent
-				l.broadcastResponse(response)
-			}
+			l.handleReadyState(session)
 
 		// case when sessions send payloads to the lobby
 		case payload := <-l.PayloadChan:
-			switch payload.Action {
-			case JoinPayloadEvent:
-				response.Action = JoinResponseEvent
-				response.Message = fmt.Sprintf("%v joined", payload.SenderSession.Username)
-				response.SkipSender = true
-				response.PayloadSession = payload.SenderSession
-				response.ConnectedUsers = l.getPlayerUsernames()
-				l.broadcastResponse(response)
-
-			case LeavePayloadEvent:
-				response.Action = LeftResponseEvent
-				response.Message = fmt.Sprintf("%v left", payload.SenderSession.Username)
-				response.SkipSender = true
-				response.PayloadSession = payload.SenderSession
-				l.broadcastResponse(response)
-
-			case ChatPayloadEvent:
-				response.Action = NewMessageResponseEvent
-				response.Message = payload.Message
-				response.SkipSender = false
-				response.PayloadSession = payload.SenderSession
-				l.broadcastResponse(response)
-
-			case ChooseColorPayloadEvent:
-				response.Action = ChooseColorResponseEvent
-				response.PayloadSession = payload.SenderSession
-				response.Message = payload.Message
-				response.SkipSender = false
-				l.broadcastResponse(response)
-
-			case SetReadyStatusPayloadEvent:
-				response.Action = SetReadyStatusResponseEvent
-				response.Message = payload.Message
-				response.PayloadSession = payload.SenderSession
-				response.SkipSender = false
-				l.broadcastResponse(response)
-
-			}
-
+			l.handlePayload(payload)
 		// for prod: if there are no players in the lobby the lobby will close
 		// after a certain time.
-		// case <-t.C:
-		// 	if len(l.Players) == 0 {
-		// 		l.logger.Info("lobby.Listen",
-		// 			slog.Group("triggering closing lobby",
-		// 				slog.String("reason", "no players in lobby"),
-		// 				slog.String("lobby_id", l.ID),
-		// 			))
-		// 		return
-		// 	}
-		//
+		case <-t.C:
+			// ok := l.handleNoPlayers()
+			// if ok {
+			// 	return
+			// }
 		}
 	}
+}
+
+func (l *GameLobby) handleRegisterSession(session *WsClient) {
+	l.logger.Info("lobby.handleRegisterSession",
+		slog.Group("Registering player connection",
+			slog.String("lobby_id", l.ID),
+			slog.String("user", session.Username)))
+
+	l.Sessions[session] = struct{}{}
+	l.Players[session.Username] = struct{}{}
+
+	l.lobbyRepo.SetPlayer(l.ID, session)
+
+}
+
+// handlerReconnectingSession attemps to reconnect a player to the lobby
+// if not reconnection is attempted within a certain time the player that
+// disconnected will be unregistered
+func (l *GameLobby) handlerReconnectingSession(s *WsClient) {
+	l.logger.Info("lobby.handlerReconnectingSession",
+		slog.Group("attempting to reconnect player",
+			slog.String("lobby_id", l.ID),
+			slog.String("username", s.Username)))
+
+	for {
+		select {
+		case <-time.After(10 * time.Second):
+			l.logger.Info("lobby.handlerReconnectingSession",
+				slog.Group("reconn window closed, unregistering player",
+					slog.String("lobby_id", l.ID),
+					slog.String("username", s.Username)))
+			l.UnregisterChan <- s
+			return
+		}
+	}
+}
+
+func (l *GameLobby) handleUnregisterSession(session *WsClient) {
+	l.logger.Info("lobby.handleUnregisterSession",
+		slog.Group("Unregistering player connection",
+			slog.String("lobby_id", l.ID),
+			slog.String("user", session.Username)))
+
+	if _, ok := l.Sessions[session]; ok {
+		delete(l.Sessions, session)
+		delete(l.Players, session.Username)
+		l.lobbyRepo.SetLobby(l)
+
+		l.lobbyRepo.DeletePlayer(l.ID, session.Username)
+		close(session.Send)
+	}
+
+}
+
+func (l *GameLobby) handleReadyState(session *WsClient) {
+	l.logger.Info("lobby.handleReadyState",
+		slog.Group("player is ready",
+			slog.String("lobby_id", l.ID),
+			slog.String("username", session.Username)))
+
+	var response WsResponse
+
+	// allReady used to start the game
+	allReady := true
+	for s := range l.Sessions {
+		// if any player is not ready allReady is false
+		if !s.IsReady {
+			allReady = false
+		}
+	}
+	// once all players are ready start the game
+	if allReady {
+		l.logger.Info("lobby.Listen",
+			slog.Group("All players are ready game starting"))
+
+		response.Action = StartGameResponseEvent
+		l.broadcastResponse(response)
+	}
+
+}
+
+func (l *GameLobby) handlePayload(payload WsPayload) {
+	var response WsResponse
+
+	switch payload.Action {
+	case JoinPayloadEvent:
+		response.Action = JoinResponseEvent
+		response.Message = fmt.Sprintf("%v joined", payload.SenderSession.Username)
+		response.SkipSender = true
+		response.PayloadSession = payload.SenderSession
+		response.ConnectedUsers = l.getPlayerUsernames()
+		l.broadcastResponse(response)
+
+	case LeavePayloadEvent:
+		response.Action = LeftResponseEvent
+		response.Message = fmt.Sprintf("%v left", payload.SenderSession.Username)
+		response.SkipSender = true
+		response.PayloadSession = payload.SenderSession
+		l.broadcastResponse(response)
+
+	case ChatPayloadEvent:
+		response.Action = NewMessageResponseEvent
+		response.Message = payload.Message
+		response.SkipSender = false
+		response.PayloadSession = payload.SenderSession
+		l.broadcastResponse(response)
+
+	case ChooseColorPayloadEvent:
+		response.Action = ChooseColorResponseEvent
+		response.PayloadSession = payload.SenderSession
+		response.Message = payload.Message
+		response.SkipSender = false
+		l.broadcastResponse(response)
+
+	case SetReadyStatusPayloadEvent:
+		response.Action = SetReadyStatusResponseEvent
+		response.Message = payload.Message
+		response.PayloadSession = payload.SenderSession
+		response.SkipSender = false
+		l.broadcastResponse(response)
+
+	}
+
+}
+
+func (l *GameLobby) handleNoPlayers() bool {
+	if len(l.Players) == 0 {
+		l.logger.Info("lobby.handleNoPlayers",
+			slog.Group("triggering closing lobby",
+				slog.String("reason", "no players in lobby"),
+				slog.String("lobby_id", l.ID),
+			))
+		return true
+	}
+
+	return false
+
 }
 
 func (l *GameLobby) getPlayerUsernames() []string {
@@ -240,4 +304,11 @@ func (l *GameLobby) broadcastResponse(response WsResponse) {
 	for session := range l.Sessions {
 		session.Send <- response
 	}
+}
+
+func (l *GameLobby) HasPlayer(username string) bool {
+	if _, ok := l.Players[username]; ok {
+		return true
+	}
+	return false
 }

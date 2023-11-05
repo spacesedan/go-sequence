@@ -8,21 +8,19 @@ import (
 
 const healthCheckPerion = time.Minute
 
-type PubSub struct {
-	*redis.PubSub
+type Publisher struct {
+	*redis.Client
 }
 
-func NewPubSub(r redis.Conn) *PubSub {
-    return &PubSub{
-        &redis.PubSubConn{Conn: r},
-    }
+func NewPublisher(r *redis.Client) *Publisher {
+	return &Publisher{r}
 }
 
-func (p *PubSub) Listen(conn redis.Conn) error {
-    defer conn.Close()
-
-
-
-    return nil
+type Subscriber struct {
+	*redis.Client
 }
 
+
+func NewSubscriber(r *redis.Client) *Subscriber {
+	return &Subscriber{r}
+}

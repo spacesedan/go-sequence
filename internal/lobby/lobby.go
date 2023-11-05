@@ -1,12 +1,14 @@
 package lobby
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"sort"
 	"time"
 
 	"github.com/spacesedan/go-sequence/internal/game"
+	"github.com/spacesedan/go-sequence/internal/pubsub"
 )
 
 type GameLobby struct {
@@ -29,6 +31,9 @@ type GameLobby struct {
 	// unregisters players from the lobby
 	UnregisterChan chan *WsClient
 
+	Publisher  *pubsub.Publisher
+	Subscriber *pubsub.Subscriber
+
 	abort chan struct{}
 
 	lobbyState *LobbyState
@@ -41,10 +46,12 @@ type GameLobby struct {
 
 // Create a new lobby
 func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
+	var lobbyId string
 	m.lobbiesMu.Lock()
 	defer m.lobbiesMu.Unlock()
 
-	var lobbyId string
+	ctx := context.Background()
+
 	colors := make(map[string]bool, 3)
 
 	if len(id) != 0 {
@@ -75,11 +82,19 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 		ReconnectChan:  make(chan *WsClient),
 		UnregisterChan: make(chan *WsClient),
 
+		Publisher:  pubsub.NewPublisher(m.redisClient),
+		Subscriber: pubsub.NewSubscriber(m.redisClient),
+
 		abort:        make(chan struct{}),
 		lobbyManager: m,
 		lobbyRepo:    NewLobbyRepo(m.redisClient, m.logger),
 		logger:       m.logger,
 	}
+
+    err := l.Publisher.Publish(ctx, fmt.Sprintf("%v.create", l.ID), "hello from lobby").Err()
+    if err != nil {
+        fmt.Printf("\n\n%v\n\n", err)
+    }
 
 	m.Lobbies[lobbyId] = l
 
@@ -110,11 +125,13 @@ func (m *LobbyManager) CloseLobby(id string) {
 }
 
 func (l *GameLobby) Listen() {
-	t := time.NewTicker(time.Second * 10)
+	t := time.NewTicker(time.Second * 3)
+    ctx, cancel := context.WithCancel(context.Background())
 
 	defer func() {
 		l.lobbyManager.UnregisterChan <- l
 		t.Stop()
+        cancel()
 	}()
 
 	l.logger.Info("lobby.Listen",
@@ -144,6 +161,7 @@ func (l *GameLobby) Listen() {
 		// for prod: if there are no players in the lobby the lobby will close
 		// after a certain time.
 		case <-t.C:
+            l.Publisher.Publish(ctx, fmt.Sprintf("lobby.%v.ping", l.ID), "Pinging")
 			// ok := l.handleNoPlayers()
 			// if ok {
 			// 	return

@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/spacesedan/go-sequence/internal/components"
+	"github.com/spacesedan/go-sequence/internal/pubsub"
 	"github.com/spacesedan/go-sequence/internal/views"
 )
 
@@ -32,11 +33,16 @@ type WsClient struct {
 	Username     string
 	LobbyID      string
 
+	Publisher  *pubsub.Publisher
+	Subscriber *pubsub.Subscriber
+
 	Color   string
 	IsReady bool
+
+    logger *slog.Logger
 }
 
-func NewWsClient(ws *websocket.Conn, lm *LobbyManager, l *GameLobby, username, lobbyId string) *WsClient {
+func NewWsClient(ws *websocket.Conn, lm *LobbyManager, l *GameLobby, logger *slog.Logger, username, lobbyId string) *WsClient {
 	return &WsClient{
 		Conn:         ws,
 		Username:     username,
@@ -44,6 +50,42 @@ func NewWsClient(ws *websocket.Conn, lm *LobbyManager, l *GameLobby, username, l
 		LobbyManager: lm,
 		Lobby:        l,
 		Send:         make(chan WsResponse),
+
+		Publisher:  pubsub.NewPublisher(lm.redisClient),
+		Subscriber: pubsub.NewSubscriber(lm.redisClient),
+
+        logger: logger,
+	}
+}
+
+// SubscribeToLobby
+func (s *WsClient) SubscribeToLobby() {
+
+    p := fmt.Sprintf("lobby.%v.*", s.Lobby.ID)
+	ctx, cancel := context.WithCancel(context.Background())
+	sub := s.Subscriber.PSubscribe(ctx, p)
+	ticker := time.NewTicker(time.Minute)
+
+	defer func() {
+        sub.PUnsubscribe(ctx, p)
+		sub.Close()
+        ticker.Stop()
+
+		cancel()
+	}()
+
+
+	ch := sub.Channel()
+	for {
+		select {
+		case msg := <-ch:
+			fmt.Printf("\n\nMESSAGE: %#v\n\n", msg)
+		case <-ticker.C:
+			err := sub.Ping(ctx)
+			if err != nil {
+				return
+			}
+		}
 	}
 }
 

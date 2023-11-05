@@ -3,7 +3,6 @@ package lobby
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"log/slog"
 
 	goredis "github.com/go-redis/redis/v8"
@@ -78,12 +77,6 @@ func (l *LobbyRepo) SetLobby(lobby *GameLobby) error {
 
 	conn := l.redisClient
 	rh := NewReJSONHandler(conn)
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			log.Fatalf("failed to communicate to goredis-server @ %v", err)
-		}
-	}()
 
 	_, err := rh.JSONSet(lobbyKey(lobby.ID), ".", &LobbyState{
 		CurrentState:    Lobby,

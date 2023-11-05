@@ -1,6 +1,7 @@
 package lobby
 
 import (
+	"encoding/json"
 	"log/slog"
 	"math/rand"
 	"sync"
@@ -13,15 +14,20 @@ const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 type WsResponse struct {
 	Action         ResponseEvent `json:"action"`
 	Message        string        `json:"message"`
-	SkipSender     bool          `json:"-"`
-	PayloadSession *WsClient     `json:"-"`
-	ConnectedUsers []string      `json:"-"`
+	Username       string `json:"username"`
+	SkipSender     bool      `json:"-"`
+	PayloadSession *WsClient `json:"session"`
+	ConnectedUsers []string  `json:"-"`
 }
 
 type WsPayload struct {
 	Action        PayloadEvent `json:"action"`
 	Message       string       `json:"message"`
 	SenderSession *WsClient    `json:"-"`
+}
+
+func (p WsPayload) MarshalBinary() ([]byte, error) {
+	return json.Marshal(p)
 }
 
 type Settings struct {

@@ -28,6 +28,7 @@ func init() {
 
 func main() {
 	gob.Register(lobby.WsClient{})
+    gob.Register(lobby.WsPayload{})
 
 	errC, err := run()
 	if err != nil {

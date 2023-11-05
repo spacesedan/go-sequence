@@ -75,13 +75,14 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%#v\n", l.Settings)
 
 	ok = l.HasPlayer(username)
-	session := lobby.NewWsClient(ws, lm.LobbyManager, l,lm.logger, username, l.ID)
+	session := lobby.NewWsClient(ws, lm.LobbyManager, l, lm.logger, username, l.ID)
 
 	l.RegisterChan <- session
 
-    go session.SubscribeToLobby()
+	go session.SubscribeToLobby()
 	go session.WritePump()
 	go session.ReadPump()
+
 
 }
 

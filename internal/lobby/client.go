@@ -39,7 +39,7 @@ type WsClient struct {
 	Color   string
 	IsReady bool
 
-    logger *slog.Logger
+	logger *slog.Logger
 }
 
 func NewWsClient(ws *websocket.Conn, lm *LobbyManager, l *GameLobby, logger *slog.Logger, username, lobbyId string) *WsClient {
@@ -54,26 +54,25 @@ func NewWsClient(ws *websocket.Conn, lm *LobbyManager, l *GameLobby, logger *slo
 		Publisher:  pubsub.NewPublisher(lm.redisClient),
 		Subscriber: pubsub.NewSubscriber(lm.redisClient),
 
-        logger: logger,
+		logger: logger,
 	}
 }
 
 // SubscribeToLobby
 func (s *WsClient) SubscribeToLobby() {
 
-    p := fmt.Sprintf("lobby.%v.*", s.Lobby.ID)
+	p := fmt.Sprintf("lobby.%v.*", s.Lobby.ID)
 	ctx, cancel := context.WithCancel(context.Background())
 	sub := s.Subscriber.PSubscribe(ctx, p)
 	ticker := time.NewTicker(time.Minute)
 
 	defer func() {
-        sub.PUnsubscribe(ctx, p)
+		sub.PUnsubscribe(ctx, p)
 		sub.Close()
-        ticker.Stop()
+		ticker.Stop()
 
 		cancel()
 	}()
-
 
 	ch := sub.Channel()
 	for {
@@ -87,6 +86,20 @@ func (s *WsClient) SubscribeToLobby() {
 			}
 		}
 	}
+}
+
+func (s *WsClient) PublishToLobby(channel string, payload WsPayload) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer func() {
+		cancel()
+	}()
+
+	err := s.Publisher.Publish(ctx, channel, payload).Err()
+	if err != nil {
+		s.logger.Error("wsClient.PublishToLobby", slog.Group("error trying to publish", slog.String("username", s.Username)))
+		return err
+	}
+	return nil
 }
 
 func (s *WsClient) ReadPump() {
@@ -123,7 +136,7 @@ func (s *WsClient) ReadPump() {
 
 		_, lobbyExists := s.LobbyManager.LobbyExists(s.LobbyID)
 		if lobbyExists {
-			payload.SenderSession = s
+			payload.SenderSession= s
 
 			s.LobbyManager.logger.Info("wsClient.ReadPump",
 				slog.Group("Sending",
@@ -131,6 +144,13 @@ func (s *WsClient) ReadPump() {
 					slog.Any("payload", payload)))
 
 			s.Lobby.PayloadChan <- payload
+            pb, err := payload.MarshalBinary()
+            if err != nil {
+                fmt.Printf("\n\nError marshaling payload: %v\n\n", err)
+            }
+			if err := s.Publisher.Publish(context.Background(), fmt.Sprintf("lobby.%v.payload", s.Lobby.ID), pb); err != nil {
+				fmt.Printf("\n\nError: %v\n\n", err)
+			}
 		} else {
 			s.Lobby.logger.Error("wsClient.ReadPump",
 				slog.Group("Error occured, teminating readpump",

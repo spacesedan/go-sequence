@@ -19,3 +19,10 @@ bundle:
 
 watch:
 	make -j5 air watch-bundle watch-tw
+
+docker-up:
+	docker compose up -d
+
+docker-down:
+	docker compose down -v
+

@@ -91,16 +91,17 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 		logger:       m.logger,
 	}
 
-    err := l.Publisher.Publish(ctx, fmt.Sprintf("%v.create", l.ID), "hello from lobby").Err()
-    if err != nil {
-        fmt.Printf("\n\n%v\n\n", err)
-    }
+	err := l.Publisher.Publish(ctx, fmt.Sprintf("lobby.%v.create", l.ID), "hello from lobby").Err()
+	if err != nil {
+		fmt.Printf("\n\n%v\n\n", err)
+	}
 
 	m.Lobbies[lobbyId] = l
 
 	l.lobbyRepo.SetLobby(l)
 
 	go l.Listen()
+    go l.ListenToPublishers()
 
 	return lobbyId
 }
@@ -124,14 +125,40 @@ func (m *LobbyManager) CloseLobby(id string) {
 	delete(m.Lobbies, id)
 }
 
+func (l *GameLobby) ListenToPublishers() {
+	p := fmt.Sprintf("lobby.%v.*", l.ID)
+	ctx, cancel := context.WithCancel(context.Background())
+	ticker := time.NewTicker(time.Minute)
+	defer func() {
+		ticker.Stop()
+		cancel()
+	}()
+
+	sub := l.Subscriber.PSubscribe(ctx, p)
+	ch := sub.Channel()
+
+	for {
+		select {
+		case msg := <-ch:
+			fmt.Printf("\n\nMSG: %#v\n\n", msg)
+		case <-ticker.C:
+			err := sub.Ping(ctx)
+			if err != nil {
+				return
+			}
+		}
+
+	}
+}
+
 func (l *GameLobby) Listen() {
 	t := time.NewTicker(time.Second * 3)
-    ctx, cancel := context.WithCancel(context.Background())
+	_, cancel := context.WithCancel(context.Background())
 
 	defer func() {
 		l.lobbyManager.UnregisterChan <- l
 		t.Stop()
-        cancel()
+		cancel()
 	}()
 
 	l.logger.Info("lobby.Listen",
@@ -161,7 +188,6 @@ func (l *GameLobby) Listen() {
 		// for prod: if there are no players in the lobby the lobby will close
 		// after a certain time.
 		case <-t.C:
-            l.Publisher.Publish(ctx, fmt.Sprintf("lobby.%v.ping", l.ID), "Pinging")
 			// ok := l.handleNoPlayers()
 			// if ok {
 			// 	return

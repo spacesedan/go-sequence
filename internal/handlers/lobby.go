@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	"github.com/spacesedan/go-sequence/internal/components"
@@ -24,15 +23,13 @@ var upgrader = websocket.Upgrader{
 
 type LobbyHandler struct {
 	LobbyManager *lobby.LobbyManager
-	sm           *scs.SessionManager
 	logger       *slog.Logger
 }
 
-func NewLobbyHandler(lm *lobby.LobbyManager, l *slog.Logger, sm *scs.SessionManager) *LobbyHandler {
+func NewLobbyHandler(lm *lobby.LobbyManager, l *slog.Logger) *LobbyHandler {
 	return &LobbyHandler{
 		LobbyManager: lm,
 		logger:       l,
-		sm:           sm,
 	}
 }
 
@@ -139,11 +136,10 @@ func (lm *LobbyHandler) handleJoinLobby(w http.ResponseWriter, r *http.Request) 
 
 // GenerateUsername generates a username and stores the value in the session.
 func (lm *LobbyHandler) handleGenerateUsername(w http.ResponseWriter, r *http.Request) {
-	userName, userCookie := generateUserCookie()
+	_, userCookie := generateUserCookie()
 
 	http.SetCookie(w, userCookie)
 	// add the username to the session
-	lm.sm.Put(r.Context(), fmt.Sprintf("username:%s", userName), userName)
 
 	w.Header().Set("HX-Redirect", "/")
 

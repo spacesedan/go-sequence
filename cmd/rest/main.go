@@ -13,10 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alexedwards/scs/redisstore"
-	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
-	"github.com/gomodule/redigo/redis"
+	"github.com/go-redis/redis/v8"
+
 	"github.com/spacesedan/go-sequence/cmd/internal"
 	"github.com/spacesedan/go-sequence/internal/handlers"
 	"github.com/spacesedan/go-sequence/internal/lobby"
@@ -42,15 +41,15 @@ func main() {
 }
 
 type ServerConfig struct {
-	address   string
-	logger    *slog.Logger
-	redisPool *redis.Pool
+	address string
+	logger  *slog.Logger
+	redis   *redis.Client
 }
 
 func run() (<-chan error, error) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	redisPool, err := internal.NewRedis()
+	rdb, err := internal.NewRedis(logger)
 	if err != nil {
 		return nil, services.WrapErrorf(err, services.ErrorCodeUnknown, "internal.NewRedis")
 	}
@@ -63,9 +62,9 @@ func run() (<-chan error, error) {
 		syscall.SIGKILL)
 
 	serverConfig := ServerConfig{
-		address:   ":42069",
-		logger:    logger,
-		redisPool: redisPool,
+		address: ":42069",
+		logger:  logger,
+		redis:   rdb,
 	}
 
 	srv, _ := newServer(serverConfig)
@@ -104,17 +103,14 @@ func run() (<-chan error, error) {
 
 func newServer(sc ServerConfig) (*http.Server, error) {
 	r := chi.NewRouter()
-	sessionManager := scs.New()
-	sessionManager.Store = redisstore.New(sc.redisPool)
-	sessionManager.Lifetime = 24 * time.Hour
 
 	// start services
-	lm := lobby.NewLobbyManager(sc.redisPool, sc.logger)
+	lm := lobby.NewLobbyManager(sc.redis, sc.logger)
 	go lm.Run()
 
 	// Register handlers
-	handlers.NewLobbyHandler(lm, sc.logger, sessionManager).Register(r)
-	handlers.NewViewHandler(sessionManager, lm).Register(r)
+	handlers.NewLobbyHandler(lm, sc.logger).Register(r)
+	handlers.NewViewHandler(lm).Register(r)
 
 	// handler static files
 	fs := http.FileServer(http.Dir("assets"))
@@ -123,7 +119,7 @@ func newServer(sc ServerConfig) (*http.Server, error) {
 	r.Handle("/bundle/*", http.StripPrefix("/bundle/", bundle))
 
 	return &http.Server{
-		Handler:           sessionManager.LoadAndSave(r),
+		Handler:           r,
 		Addr:              sc.address,
 		ReadTimeout:       1 * time.Second,
 		WriteTimeout:      1 * time.Second,

@@ -1,14 +1,28 @@
 package internal
 
-import "github.com/gomodule/redigo/redis"
+import (
+	"context"
+	"log/slog"
 
-func NewRedis() (*redis.Pool, error) {
-	pool := &redis.Pool{
-		MaxIdle: 10,
-		Dial: func() (redis.Conn, error) {
-			return redis.Dial("tcp", "0.0.0.0:6379")
-		},
+	"github.com/go-redis/redis/v8"
+)
+
+func NewRedis(logger *slog.Logger) (*redis.Client, error) {
+	var err error
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+
+	res := rdb.Ping(context.Background())
+	if res.Err() != nil {
+		err = res.Err()
+		logger.Error("internal.NewRedis",
+			slog.Group("failed to ping redis",
+				slog.String("reason", err.Error())))
+
+		return nil, err
 	}
+	logger.Info("internal.NewRedis", slog.String("status", "connection successful"))
 
-	return pool, nil
+	return rdb, nil
 }

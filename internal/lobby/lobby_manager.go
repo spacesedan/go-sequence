@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/gomodule/redigo/redis"
+	"github.com/go-redis/redis/v8"
 )
 
 const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -31,8 +31,8 @@ type Settings struct {
 }
 
 type LobbyManager struct {
-	logger    *slog.Logger
-	redisPool *redis.Pool
+	logger      *slog.Logger
+	redisClient *redis.Client
 
 	lobbiesMu      sync.Mutex
 	Lobbies        map[string]*GameLobby
@@ -41,7 +41,7 @@ type LobbyManager struct {
 	UnregisterChan chan *GameLobby
 }
 
-func NewLobbyManager(r *redis.Pool, l *slog.Logger) *LobbyManager {
+func NewLobbyManager(r *redis.Client, l *slog.Logger) *LobbyManager {
 	l.Info("NewLobbyManager", slog.String("reason", "starting up lobby manager"))
 	devSettings := Settings{
 		NumOfPlayers: 2,
@@ -49,8 +49,8 @@ func NewLobbyManager(r *redis.Pool, l *slog.Logger) *LobbyManager {
 	}
 
 	lm := &LobbyManager{
-		logger:    l,
-		redisPool: r,
+		logger:      l,
+		redisClient: r,
 
 		Lobbies:        make(map[string]*GameLobby),
 		RegisterChan:   make(chan *GameLobby),

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/spacesedan/go-sequence/internal/components"
 	"github.com/spacesedan/go-sequence/internal/lobby"
@@ -15,12 +14,10 @@ import (
 
 type ViewHandler struct {
 	LobbyManager *lobby.LobbyManager
-	sm           *scs.SessionManager
 }
 
-func NewViewHandler(sm *scs.SessionManager, lm *lobby.LobbyManager) *ViewHandler {
+func NewViewHandler(lm *lobby.LobbyManager) *ViewHandler {
 	return &ViewHandler{
-		sm:           sm,
 		LobbyManager: lm,
 	}
 }
@@ -87,8 +84,8 @@ func (v ViewHandler) handleLobbyPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		topic := "Lobby full"
 		content := "cannot join lobby, already at max capacity"
-        components.ToastComponent(topic, content).Render(r.Context(), w)
-        return
+		components.ToastComponent(topic, content).Render(r.Context(), w)
+		return
 	}
 
 	connectionUrl := createWebsocketConnectionString(lobbyID)

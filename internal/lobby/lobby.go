@@ -77,7 +77,7 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 
 		abort:        make(chan struct{}),
 		lobbyManager: m,
-		lobbyRepo:    NewLobbyRepo(m.redisPool, m.logger),
+		lobbyRepo:    NewLobbyRepo(m.redisClient, m.logger),
 		logger:       m.logger,
 	}
 

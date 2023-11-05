@@ -6,20 +6,21 @@ import (
 	"log"
 	"log/slog"
 
+	goredis "github.com/go-redis/redis/v8"
 	"github.com/gomodule/redigo/redis"
 	"github.com/nitishm/go-rejson/v4"
 )
 
-// reJSONHandler redis JSON handler connects to the redis pool and handles a
+// reJSONHandler goredis JSON handler connects to the redis pool and handles a
 // single query
 type reJSONHandler struct {
 	*rejson.Handler
 }
 
 // NewReJSONHandler
-func NewReJSONHandler(conn redis.Conn) reJSONHandler {
+func NewReJSONHandler(conn *goredis.Client) reJSONHandler {
 	rh := rejson.NewReJSONHandler()
-	rh.SetRedigoClient(conn)
+	rh.SetGoRedisClient(conn)
 
 	return reJSONHandler{rh}
 }
@@ -49,16 +50,16 @@ func (c CurrentState) String() string {
 
 // LobbyRepo responsible for interfacing with the data stored in the cache
 type LobbyRepo struct {
-	redis  *redis.Pool
-	logger *slog.Logger
+	redisClient *goredis.Client
+	logger      *slog.Logger
 }
 
-// NewLobbyRepo creates a LobbyRepo instance to interact with the redis server
-func NewLobbyRepo(r *redis.Pool, l *slog.Logger) *LobbyRepo {
+// NewLobbyRepo creates a LobbyRepo instance to interact with the goredis server
+func NewLobbyRepo(r *goredis.Client, l *slog.Logger) *LobbyRepo {
 	l.Info("lobby.NewLobbyRepo: created new lobby repo")
 	return &LobbyRepo{
-		redis:  r,
-		logger: l,
+		redisClient: r,
+		logger:      l,
 	}
 }
 
@@ -75,12 +76,12 @@ func (l *LobbyRepo) SetLobby(lobby *GameLobby) error {
 		slog.Group("writing lobby to db",
 			slog.String("lobby_id", lobby.ID)))
 
-	conn := l.redis.Get()
+	conn := l.redisClient
 	rh := NewReJSONHandler(conn)
 	defer func() {
 		err := conn.Close()
 		if err != nil {
-			log.Fatalf("failed to communicate to redis-server @ %v", err)
+			log.Fatalf("failed to communicate to goredis-server @ %v", err)
 		}
 	}()
 
@@ -101,19 +102,12 @@ func (l *LobbyRepo) SetLobby(lobby *GameLobby) error {
 // GetLobby gets a lobby from teh db using the lobby id
 func (l *LobbyRepo) GetLobby(lobby_id string) (*LobbyState, error) {
 	l.logger.Info("lobbyRepo.GetLobby",
-		slog.Group("reading lobby from redis",
+		slog.Group("reading lobby from goredis",
 			slog.String("lobby_id", lobby_id)))
 
 	var lobbyState *LobbyState
 
-	conn := l.redis.Get()
-	defer func() {
-		if err := conn.Close(); err != nil {
-			log.Fatal(err)
-		}
-	}()
-
-	rh := NewReJSONHandler(conn)
+	rh := NewReJSONHandler(l.redisClient)
 	lobbyJSON, err := redis.Bytes(rh.JSONGet(lobbyKey(lobby_id), "."))
 	if err != nil {
 		return nil, err
@@ -130,17 +124,11 @@ func (l *LobbyRepo) GetLobby(lobby_id string) (*LobbyState, error) {
 // DeleteLobby deletes a lobby from the db using the lobby id
 func (l *LobbyRepo) DeleteLobby(lobby_id string) error {
 	l.logger.Info("lobbyRepo.DeleteLobby",
-		slog.Group("deleting lobby from redis",
+		slog.Group("deleting lobby from goredis",
 			slog.String("lobby_id", lobby_id)))
 
-	conn := l.redis.Get()
-	defer func() {
-		if err := conn.Close(); err != nil {
-			log.Fatal(err)
-		}
-	}()
 
-	rh := NewReJSONHandler(conn)
+	rh := NewReJSONHandler(l.redisClient)
 
 	if _, err := rh.JSONDel(lobbyKey(lobby_id), "."); err != nil {
 		return err
@@ -161,14 +149,7 @@ func (l *LobbyRepo) SetPlayer(lobby_id string, p *WsClient) error {
 		slog.Group("writing player to db",
 			slog.String("player", p.Username)))
 
-	conn := l.redis.Get()
-	rh := NewReJSONHandler(conn)
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			log.Fatalf("failed to communicate to redis-server @ %v", err)
-		}
-	}()
+	rh := NewReJSONHandler(l.redisClient)
 
 	if _, err := rh.JSONSet(playerKey(lobby_id, p.Username), ".", &PlayerState{
 		Username: p.Username,
@@ -190,14 +171,8 @@ func (l *LobbyRepo) GetPlayer(lobby_id string, username string) (*PlayerState, e
 			slog.String("username", username)))
 
 	var ps *PlayerState
-	conn := l.redis.Get()
-	rh := NewReJSONHandler(conn)
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			log.Fatalf("failed to communicate to redis-server @ %v", err)
-		}
-	}()
+
+	rh := NewReJSONHandler(l.redisClient)
 
 	pj, err := redis.Bytes(rh.JSONGet(playerKey(lobby_id, username), "."))
 	if err != nil {
@@ -221,20 +196,12 @@ func (l *LobbyRepo) GetMPlayers(gl *GameLobby) ([]*PlayerState, error) {
 	var ps []*PlayerState
 	var playerKeys []string
 
-	conn := l.redis.Get()
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			log.Fatalf("failed to communicate to redis-server @ %v", err)
-		}
-	}()
 
 	for username := range gl.Players {
 		playerKeys = append(playerKeys, playerKey(gl.ID, username))
 	}
 
-	rh := rejson.NewReJSONHandler()
-	rh.SetRedigoClient(conn)
+    rh := NewReJSONHandler(l.redisClient)
 
 	pb, err := redis.ByteSlices(rh.JSONMGet(".", playerKeys...))
 	if err != nil {
@@ -263,16 +230,9 @@ func (l *LobbyRepo) DeletePlayer(lobby_id string, username string) error {
 			slog.String("lobby_id", lobby_id),
 			slog.String("username", username)))
 
-	conn := l.redis.Get()
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			log.Fatalf("failed to communicate to redis-server @ %v", err)
-		}
-	}()
 
-	rh := rejson.NewReJSONHandler()
-	rh.SetRedigoClient(conn)
+
+	rh := NewReJSONHandler(l.redisClient)
 
 	_, err := rh.JSONDel(playerKey(lobby_id, username), ".")
 	if err != nil {
@@ -283,12 +243,12 @@ func (l *LobbyRepo) DeletePlayer(lobby_id string, username string) error {
 
 }
 
-// lobbyKey helper that returns a string used to associate the lobby in redis
+// lobbyKey helper that returns a string used to associate the lobby in goredis
 func lobbyKey(lobby_id string) string {
 	return fmt.Sprintf("lobby_id-%v.gamestate", lobby_id)
 }
 
-// playerKey helper that returns a string used to associate the player in redis
+// playerKey helper that returns a string used to associate the player in goredis
 func playerKey(lobby_id string, u string) string {
 	return fmt.Sprintf("lobby_id-%v|username-%v.playerstate", lobby_id, u)
 }

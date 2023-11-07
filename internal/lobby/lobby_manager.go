@@ -14,18 +14,17 @@ const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 type WsResponse struct {
 	Action         ResponseEvent `json:"action"`
 	Message        string        `json:"message"`
-	Username       string        `json:"username"`
-	SkipSender     bool          `json:"-"`
-	PayloadSession *WsClient     `json:"-"`
-	ConnectedUsers []string      `json:"-"`
+	Sender         string        `json:"sender"`
+	SkipSender     bool          `json:"skip_sender"`
+	ConnectedUsers []string      `json:"connected_users"`
 }
 
 func (r WsResponse) MarshalBinary() ([]byte, error) {
-    return json.Marshal(r)
+	return json.Marshal(r)
 }
 
 func (r *WsResponse) Unmarshal(s string) error {
-    return json.Unmarshal([]byte(s), &r)
+	return json.Unmarshal([]byte(s), &r)
 }
 
 type WsPayload struct {

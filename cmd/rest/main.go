@@ -49,7 +49,9 @@ type ServerConfig struct {
 }
 
 func run() (<-chan error, error) {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+        Level: slog.LevelDebug,
+    }))
 
 	rdb, err := internal.NewRedis(logger)
 	if err != nil {

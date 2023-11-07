@@ -7,8 +7,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/spacesedan/go-sequence/internal/game"
-	"github.com/spacesedan/go-sequence/internal/pubsub"
 )
 
 type GameLobby struct {
@@ -31,9 +31,6 @@ type GameLobby struct {
 	// unregisters players from the lobby
 	UnregisterChan chan *WsClient
 
-	publisher  *pubsub.Publisher
-	subscriber *pubsub.Subscriber
-
 	abort chan struct{}
 
 	lobbyState *LobbyState
@@ -42,6 +39,7 @@ type GameLobby struct {
 	//
 	lobbyManager *LobbyManager
 	logger       *slog.Logger
+	redisClient  *redis.Client
 }
 
 // Create a new lobby
@@ -80,13 +78,10 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 		ReconnectChan:  make(chan *WsClient),
 		UnregisterChan: make(chan *WsClient),
 
-		publisher:  pubsub.NewPublisher(m.redisClient),
-		subscriber: pubsub.NewSubscriber(m.redisClient),
-
-		abort:        make(chan struct{}),
 		lobbyManager: m,
-		lobbyRepo:    NewLobbyRepo(m.redisClient, m.logger),
 		logger:       m.logger,
+		redisClient:  m.redisClient,
+        lobbyRepo:    NewLobbyRepo(m.redisClient, m.logger),
 	}
 
 	l.lobbyRepo.SetLobby(l)
@@ -123,40 +118,30 @@ func (l *GameLobby) Subscribe() {
 	payloadChanKey := fmt.Sprintf("lobby.%v.payloadChannel", l.ID)
 	ctx, cancel := context.WithCancel(context.Background())
 	ticker := time.NewTicker(time.Minute)
+    sub := l.redisClient.Subscribe(ctx, payloadChanKey)
 
 	defer func() {
+		sub.Unsubscribe(ctx, payloadChanKey)
+		sub.Close()
+
 		ticker.Stop()
 		cancel()
 	}()
 
-	sub := l.subscriber.Subscribe(ctx, payloadChanKey)
 	ch := sub.Channel()
 
 	for {
 		select {
 		case msg := <-ch:
 			var payload WsPayload
-			var response WsResponse
 			if err := payload.Unmarshal(msg.Payload); err != nil {
 				l.logger.Error("lobby.Subscribe",
 					slog.Group("failed to unmarshal payload",
 						slog.Any("reason", err)))
+				return
 			}
 
-			response.Message = payload.Message
-			response.Action = JoinResponseEvent
-            response.Username = payload.Username
-
-			rb, err := response.MarshalBinary()
-			if err != nil {
-				l.logger.Error("lobby.Subscribe",
-					slog.Group("failed to marshal response",
-						slog.Any("reason", err)))
-
-			}
-
-
-			l.publisher.Publish(context.Background(), fmt.Sprintf("lobby.%v.responseChannel", l.ID), rb)
+			l.handlePayload(payload)
 
 		case <-ticker.C:
 			err := sub.Ping(ctx)
@@ -168,8 +153,31 @@ func (l *GameLobby) Subscribe() {
 	}
 }
 
-func (l *GameLobby) publishResponse() {
+func (l *GameLobby) publishResponse(response WsResponse) error {
+	l.logger.Info("lobby.publishResponse",
+		slog.Group("sending response to players",
+			slog.String("lobby_id", l.ID)))
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer func() {
+		cancel()
+	}()
+	responseChanKey := fmt.Sprintf("lobby.%v.responseChannel", l.ID)
+
+	rb, err := response.MarshalBinary()
+	if err != nil {
+		l.logger.Error("wsClient.PublishPayloadToLobby",
+			slog.Group("failed to marshal payload",
+				slog.String("reason", err.Error())))
+		return err
+	}
+
+    err = l.redisClient.Publish(ctx, responseChanKey, rb).Err()
+	if err != nil {
+		l.logger.Error("lobby.publishResponse", slog.Group("error trying to publish", slog.String("lobby_id", l.ID)))
+		return err
+	}
+	return nil
 }
 
 // this function will handle
@@ -205,8 +213,8 @@ func (l *GameLobby) Listen() {
 			l.handleReadyState(session)
 
 		// case when sessions send payloads to the lobby
-		case payload := <-l.PayloadChan:
-			l.handlePayload(payload)
+		// case payload := <-l.PayloadChan:
+		// 	l.handlePayload(payload)
 		// for prod: if there are no players in the lobby the lobby will close
 		// after a certain time.
 		case <-t.C:
@@ -303,39 +311,47 @@ func (l *GameLobby) handlePayload(payload WsPayload) {
 	switch payload.Action {
 	case JoinPayloadEvent:
 		response.Action = JoinResponseEvent
-		response.Message = fmt.Sprintf("%v joined", payload.SenderSession.Username)
+		response.Message = fmt.Sprintf("%v joined", payload.Username)
 		response.SkipSender = true
-		response.PayloadSession = payload.SenderSession
+		response.Sender = payload.Username
 		response.ConnectedUsers = l.getPlayerUsernames()
-		l.broadcastResponse(response)
+		if err := l.publishResponse(response); err != nil {
+			fmt.Printf("ERROR: %v\n", err)
+		}
 
 	case LeavePayloadEvent:
 		response.Action = LeftResponseEvent
-		response.Message = fmt.Sprintf("%v left", payload.SenderSession.Username)
+		response.Message = fmt.Sprintf("%v left", payload.Username)
 		response.SkipSender = true
-		response.PayloadSession = payload.SenderSession
-		l.broadcastResponse(response)
+		response.Sender = payload.Username
+		response.ConnectedUsers = l.getPlayerUsernames()
+		if err := l.publishResponse(response); err != nil {
+		}
 
 	case ChatPayloadEvent:
 		response.Action = NewMessageResponseEvent
 		response.Message = payload.Message
 		response.SkipSender = false
-		response.PayloadSession = payload.SenderSession
-		l.broadcastResponse(response)
+		response.Sender = payload.Username
+		response.ConnectedUsers = l.getPlayerUsernames()
+		if err := l.publishResponse(response); err != nil {
+		}
 
 	case ChooseColorPayloadEvent:
 		response.Action = ChooseColorResponseEvent
-		response.PayloadSession = payload.SenderSession
+		response.Sender = payload.Username
 		response.Message = payload.Message
 		response.SkipSender = false
-		l.broadcastResponse(response)
+		if err := l.publishResponse(response); err != nil {
+		}
 
 	case SetReadyStatusPayloadEvent:
 		response.Action = SetReadyStatusResponseEvent
 		response.Message = payload.Message
-		response.PayloadSession = payload.SenderSession
+		response.Sender = payload.Username
 		response.SkipSender = false
-		l.broadcastResponse(response)
+		if err := l.publishResponse(response); err != nil {
+		}
 
 	}
 

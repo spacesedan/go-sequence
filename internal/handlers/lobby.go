@@ -79,8 +79,8 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 
 	l.RegisterChan <- session
 
+    go session.SubscribeToLobby()
     go session.ReadPump()
-	go session.SubscribeToLobby()
 	// go session.WritePump()
 
 

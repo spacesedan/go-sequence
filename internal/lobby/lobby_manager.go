@@ -14,20 +14,33 @@ const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 type WsResponse struct {
 	Action         ResponseEvent `json:"action"`
 	Message        string        `json:"message"`
-	Username       string `json:"username"`
-	SkipSender     bool      `json:"-"`
-	PayloadSession *WsClient `json:"session"`
-	ConnectedUsers []string  `json:"-"`
+	Username       string        `json:"username"`
+	SkipSender     bool          `json:"-"`
+	PayloadSession *WsClient     `json:"-"`
+	ConnectedUsers []string      `json:"-"`
+}
+
+func (r WsResponse) MarshalBinary() ([]byte, error) {
+    return json.Marshal(r)
+}
+
+func (r *WsResponse) Unmarshal(s string) error {
+    return json.Unmarshal([]byte(s), &r)
 }
 
 type WsPayload struct {
 	Action        PayloadEvent `json:"action"`
 	Message       string       `json:"message"`
+	Username      string       `json:"username"`
 	SenderSession *WsClient    `json:"-"`
 }
 
 func (p WsPayload) MarshalBinary() ([]byte, error) {
 	return json.Marshal(p)
+}
+
+func (p *WsPayload) Unmarshal(s string) error {
+	return json.Unmarshal([]byte(s), &p)
 }
 
 type Settings struct {
@@ -92,7 +105,6 @@ func (m *LobbyManager) Run() {
 			m.Lobbies[lobby.ID] = lobby
 		case lobby := <-m.UnregisterChan:
 			m.CloseLobby(lobby.ID)
-			delete(m.Lobbies, lobby.ID)
 		}
 	}
 }

@@ -31,8 +31,8 @@ type GameLobby struct {
 	// unregisters players from the lobby
 	UnregisterChan chan *WsClient
 
-	Publisher  *pubsub.Publisher
-	Subscriber *pubsub.Subscriber
+	publisher  *pubsub.Publisher
+	subscriber *pubsub.Subscriber
 
 	abort chan struct{}
 
@@ -49,8 +49,6 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 	var lobbyId string
 	m.lobbiesMu.Lock()
 	defer m.lobbiesMu.Unlock()
-
-	ctx := context.Background()
 
 	colors := make(map[string]bool, 3)
 
@@ -82,8 +80,8 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 		ReconnectChan:  make(chan *WsClient),
 		UnregisterChan: make(chan *WsClient),
 
-		Publisher:  pubsub.NewPublisher(m.redisClient),
-		Subscriber: pubsub.NewSubscriber(m.redisClient),
+		publisher:  pubsub.NewPublisher(m.redisClient),
+		subscriber: pubsub.NewSubscriber(m.redisClient),
 
 		abort:        make(chan struct{}),
 		lobbyManager: m,
@@ -91,17 +89,11 @@ func (m *LobbyManager) NewGameLobby(settings Settings, id ...string) string {
 		logger:       m.logger,
 	}
 
-	err := l.Publisher.Publish(ctx, fmt.Sprintf("lobby.%v.create", l.ID), "hello from lobby").Err()
-	if err != nil {
-		fmt.Printf("\n\n%v\n\n", err)
-	}
-
+	l.lobbyRepo.SetLobby(l)
 	m.Lobbies[lobbyId] = l
 
-	l.lobbyRepo.SetLobby(l)
-
 	go l.Listen()
-    go l.ListenToPublishers()
+	go l.Subscribe()
 
 	return lobbyId
 }
@@ -125,22 +117,47 @@ func (m *LobbyManager) CloseLobby(id string) {
 	delete(m.Lobbies, id)
 }
 
-func (l *GameLobby) ListenToPublishers() {
-	p := fmt.Sprintf("lobby.%v.*", l.ID)
+// Subscribe listens to the lobby payload channel and once it recieves a payload it
+// sends a response to the appropriate channel
+func (l *GameLobby) Subscribe() {
+	payloadChanKey := fmt.Sprintf("lobby.%v.payloadChannel", l.ID)
 	ctx, cancel := context.WithCancel(context.Background())
 	ticker := time.NewTicker(time.Minute)
+
 	defer func() {
 		ticker.Stop()
 		cancel()
 	}()
 
-	sub := l.Subscriber.PSubscribe(ctx, p)
+	sub := l.subscriber.Subscribe(ctx, payloadChanKey)
 	ch := sub.Channel()
 
 	for {
 		select {
 		case msg := <-ch:
-			fmt.Printf("\n\nMSG: %#v\n\n", msg)
+			var payload WsPayload
+			var response WsResponse
+			if err := payload.Unmarshal(msg.Payload); err != nil {
+				l.logger.Error("lobby.Subscribe",
+					slog.Group("failed to unmarshal payload",
+						slog.Any("reason", err)))
+			}
+
+			response.Message = payload.Message
+			response.Action = JoinResponseEvent
+            response.Username = payload.Username
+
+			rb, err := response.MarshalBinary()
+			if err != nil {
+				l.logger.Error("lobby.Subscribe",
+					slog.Group("failed to marshal response",
+						slog.Any("reason", err)))
+
+			}
+
+
+			l.publisher.Publish(context.Background(), fmt.Sprintf("lobby.%v.responseChannel", l.ID), rb)
+
 		case <-ticker.C:
 			err := sub.Ping(ctx)
 			if err != nil {
@@ -151,6 +168,11 @@ func (l *GameLobby) ListenToPublishers() {
 	}
 }
 
+func (l *GameLobby) publishResponse() {
+
+}
+
+// this function will handle
 func (l *GameLobby) Listen() {
 	t := time.NewTicker(time.Second * 3)
 	_, cancel := context.WithCancel(context.Background())

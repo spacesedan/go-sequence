@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/spacesedan/go-sequence/internal/game"
 )
 
 const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -42,26 +43,21 @@ func (p *WsPayload) Unmarshal(s string) error {
 	return json.Unmarshal([]byte(s), &p)
 }
 
-type Settings struct {
-	NumOfPlayers int `json:"num_of_players"`
-	MaxHandSize  int `json:"max_hand_size"`
-	Teams        bool
-}
 
 type LobbyManager struct {
 	logger      *slog.Logger
 	redisClient *redis.Client
 
 	lobbiesMu      sync.Mutex
-	Lobbies        map[string]*GameLobby
+	Lobbies        map[string]*Lobby
 	Sessions       map[*WsClient]struct{}
-	RegisterChan   chan *GameLobby
-	UnregisterChan chan *GameLobby
+	RegisterChan   chan *Lobby
+	UnregisterChan chan *Lobby
 }
 
 func NewLobbyManager(r *redis.Client, l *slog.Logger) *LobbyManager {
 	l.Info("NewLobbyManager", slog.String("reason", "starting up lobby manager"))
-	devSettings := Settings{
+	devSettings := game.Settings{
 		NumOfPlayers: 2,
 		MaxHandSize:  7,
 	}
@@ -70,14 +66,14 @@ func NewLobbyManager(r *redis.Client, l *slog.Logger) *LobbyManager {
 		logger:      l,
 		redisClient: r,
 
-		Lobbies:        make(map[string]*GameLobby),
-		RegisterChan:   make(chan *GameLobby),
-		UnregisterChan: make(chan *GameLobby),
+		Lobbies:        make(map[string]*Lobby),
+		RegisterChan:   make(chan *Lobby),
+		UnregisterChan: make(chan *Lobby),
 		Sessions:       make(map[*WsClient]struct{}),
 	}
 
-	lm.NewGameLobby(devSettings, "ASDA")
-	lm.NewGameLobby(devSettings, "JKLK")
+	lm.NewLobby(devSettings, "ASDA")
+	lm.NewLobby(devSettings, "JKLK")
 
 	return lm
 }
@@ -108,7 +104,7 @@ func (m *LobbyManager) Run() {
 	}
 }
 
-func (m *LobbyManager) LobbyExists(lobbyId string) (*GameLobby, bool) {
+func (m *LobbyManager) LobbyExists(lobbyId string) (*Lobby, bool) {
 	l, ok := m.Lobbies[lobbyId]
 	return l, ok
 }

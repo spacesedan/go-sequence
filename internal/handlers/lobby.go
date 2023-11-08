@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	"github.com/spacesedan/go-sequence/internal/components"
+	"github.com/spacesedan/go-sequence/internal/game"
 	"github.com/spacesedan/go-sequence/internal/lobby"
 )
 
@@ -101,7 +102,7 @@ func (lm *LobbyHandler) handleCreateGameLobby(w http.ResponseWriter, r *http.Req
 	}
 
 	// create the lobby
-	lobbyId := lm.LobbyManager.NewGameLobby(lobby.Settings{
+	lobbyId := lm.LobbyManager.NewLobby(game.Settings{
 		NumOfPlayers: numOfPlayers,
 		MaxHandSize:  maxHandSize,
 	})

@@ -11,6 +11,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/websocket"
 	"github.com/spacesedan/go-sequence/internal/components"
+	"github.com/spacesedan/go-sequence/internal/db"
 	"github.com/spacesedan/go-sequence/internal/views"
 )
 
@@ -27,7 +28,7 @@ const (
 
 type WsClient struct {
 	LobbyManager *LobbyManager
-	Lobby        *GameLobby
+	Lobby        *Lobby
 	Send         chan WsResponse
 	Conn         *websocket.Conn
 	Username     string
@@ -36,11 +37,13 @@ type WsClient struct {
 	Color   string
 	IsReady bool
 
+	playerState db.PlayerState
+	clientRepo  db.ClientRepo
 	redisClient *redis.Client
 	logger      *slog.Logger
 }
 
-func NewWsClient(ws *websocket.Conn, lm *LobbyManager, l *GameLobby, logger *slog.Logger, username, lobbyId string) *WsClient {
+func NewWsClient(ws *websocket.Conn, lm *LobbyManager, l *Lobby, logger *slog.Logger, username, lobbyId string) *WsClient {
 	return &WsClient{
 		Conn:         ws,
 		Username:     username,
@@ -49,6 +52,7 @@ func NewWsClient(ws *websocket.Conn, lm *LobbyManager, l *GameLobby, logger *slo
 		Lobby:        l,
 		Send:         make(chan WsResponse),
 
+		clientRepo:  db.NewClientRepo(l.redisClient, l.logger),
 		redisClient: l.redisClient,
 		logger:      logger,
 	}
@@ -191,7 +195,7 @@ func (s *WsClient) SubscribeToLobby() {
 					s.updateColor(response)
 				}
 
-				sender, err := s.Lobby.lobbyRepo.GetPlayer(s.Lobby.ID, response.Sender)
+				sender, err := s.clientRepo.GetPlayer(s.Lobby.ID, response.Sender)
 				if err != nil {
 					fmt.Printf("ERROR: %v\n", err)
 					return
@@ -224,7 +228,7 @@ func (s *WsClient) SubscribeToLobby() {
 					s.Lobby.ReadyChan <- s
 				}
 
-				sender, err := s.Lobby.lobbyRepo.GetPlayer(s.Lobby.ID, response.Sender)
+				sender, err := s.clientRepo.GetPlayer(s.Lobby.ID, response.Sender)
 				if err != nil {
 					return
 				}
@@ -272,7 +276,7 @@ func (s *WsClient) publishPayloadToLobby(payload WsPayload) error {
 		return err
 	}
 
-    err = s.redisClient.Publish(ctx, payloadChanKey, pb).Err()
+	err = s.redisClient.Publish(ctx, payloadChanKey, pb).Err()
 	if err != nil {
 		s.logger.Error("wsClient.PublishToLobby",
 			slog.Group("error trying to publish",
@@ -359,7 +363,7 @@ func (s *WsClient) WritePump() {
 					s.updateColor(response)
 				}
 
-				sender, err := s.Lobby.lobbyRepo.GetPlayer(s.Lobby.ID, response.Sender)
+				sender, err := s.clientRepo.GetPlayer(s.Lobby.ID, response.Sender)
 				if err != nil {
 					return
 				}
@@ -398,7 +402,7 @@ func (s *WsClient) WritePump() {
 					s.Lobby.ReadyChan <- s
 				}
 
-				sender, err := s.Lobby.lobbyRepo.GetPlayer(s.Lobby.ID, response.Sender)
+				sender, err := s.clientRepo.GetPlayer(s.Lobby.ID, response.Sender)
 				if err != nil {
 					return
 				}

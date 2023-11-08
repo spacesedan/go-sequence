@@ -46,6 +46,12 @@ type gameService struct {
 	CurrentPlayer int
 }
 
+type Settings struct {
+	NumOfPlayers int `json:"num_of_players"`
+	MaxHandSize  int `json:"max_hand_size"`
+	Teams        bool
+}
+
 // path to file which contains board game cell information
 const (
 	BoardSize          = 10

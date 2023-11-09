@@ -68,10 +68,10 @@ func (m *LobbyManager) NewLobby(settings game.Settings, id ...string) string {
 	l := &Lobby{
 		ID:              lobbyId,
 		Game:            game.NewGameService(),
-		Players:         map[string]struct{}{},
 		Settings:        settings,
 		AvailableColors: colors,
 
+		Players:        make(map[string]struct{}),
 		Sessions:       make(map[*WsClient]struct{}),
 		PayloadChan:    make(chan WsPayload),
 		ReadyChan:      make(chan *WsClient),
@@ -122,10 +122,10 @@ func (m *LobbyManager) CloseLobby(id string) {
 // Subscribe listens to the lobby payload channel and once it recieves a payload it
 // sends a response to the appropriate channel
 func (l *Lobby) Subscribe() {
-	payloadChanKey := fmt.Sprintf("lobby.%v.payloadChannel", l.ID)
+	payloadChanKey := fmt.Sprintf("lobby.%v.player.*", l.ID)
 	ctx, cancel := context.WithCancel(context.Background())
 	ticker := time.NewTicker(time.Minute)
-	sub := l.redisClient.Subscribe(ctx, payloadChanKey)
+	sub := l.redisClient.PSubscribe(ctx, payloadChanKey)
 
 	defer func() {
 		sub.Unsubscribe(ctx, payloadChanKey)
@@ -139,16 +139,22 @@ func (l *Lobby) Subscribe() {
 
 	for {
 		select {
-		case msg := <-ch:
-			var payload WsPayload
-			if err := payload.Unmarshal(msg.Payload); err != nil {
-				l.logger.Error("lobby.Subscribe",
-					slog.Group("failed to unmarshal payload",
-						slog.Any("reason", err)))
+		case msg, ok := <-ch:
+			if !ok {
 				return
 			}
-
-			l.handlePayload(payload)
+			fmt.Printf("\nMSG: %#v\n\n", msg)
+			switch msg.Channel {
+			case fmt.Sprintf("lobby.%v.client.payloadChannel", l.ID):
+				var payload WsPayload
+				if err := payload.Unmarshal(msg.Payload); err != nil {
+					l.logger.Error("lobby.Subscribe",
+						slog.Group("failed to unmarshal payload",
+							slog.Any("reason", err)))
+					return
+				}
+				l.handlePayload(payload)
+			}
 
 		case <-ticker.C:
 			err := sub.Ping(ctx)
@@ -169,7 +175,7 @@ func (l *Lobby) publishResponse(response WsResponse) error {
 	defer func() {
 		cancel()
 	}()
-	responseChanKey := fmt.Sprintf("lobby.%v.responseChannel", l.ID)
+	responseChanKey := fmt.Sprintf("lobby.%v.player.responseChannel", l.ID)
 
 	rb, err := response.MarshalBinary()
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
-	"github.com/spacesedan/go-sequence/internal/components"
+	"github.com/spacesedan/go-sequence/internal/views/components"
 	"github.com/spacesedan/go-sequence/internal/game"
 	"github.com/spacesedan/go-sequence/internal/lobby"
 )

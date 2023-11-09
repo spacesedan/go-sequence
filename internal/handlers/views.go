@@ -7,18 +7,23 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/spacesedan/go-sequence/internal/components"
+	"github.com/go-redis/redis/v8"
 	"github.com/spacesedan/go-sequence/internal/lobby"
 	"github.com/spacesedan/go-sequence/internal/views"
+	"github.com/spacesedan/go-sequence/internal/views/components"
 )
 
+// might want to set up state for other parts of the site so having easier access
+// to redis client makes sense
 type ViewHandler struct {
 	LobbyManager *lobby.LobbyManager
+	redisClient  *redis.Client
 }
 
-func NewViewHandler(lm *lobby.LobbyManager) *ViewHandler {
+func NewViewHandler(r *redis.Client, lm *lobby.LobbyManager) *ViewHandler {
 	return &ViewHandler{
 		LobbyManager: lm,
+		redisClient:  r,
 	}
 }
 

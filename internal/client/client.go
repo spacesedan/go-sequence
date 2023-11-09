@@ -1,4 +1,4 @@
-package lobby
+package client
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/websocket"
 	"github.com/spacesedan/go-sequence/internal/db"
+	"github.com/spacesedan/go-sequence/internal/lobby"
 	"github.com/spacesedan/go-sequence/internal/views"
 	"github.com/spacesedan/go-sequence/internal/views/components"
 )
@@ -27,9 +28,9 @@ const (
 )
 
 type WsClient struct {
-	LobbyManager *LobbyManager
-	Lobby        *Lobby
-	Send         chan WsResponse
+	LobbyManager *lobby.LobbyManager
+	Lobby        *lobby.Lobby
+	Send         chan lobby.WsResponse
 	Conn         *websocket.Conn
 	Username     string
 	LobbyID      string
@@ -43,32 +44,34 @@ type WsClient struct {
 	logger      *slog.Logger
 }
 
-func NewWsClient(ws *websocket.Conn, lm *LobbyManager, l *Lobby, logger *slog.Logger, username, lobbyId string) *WsClient {
+func NewWsClient(ws *websocket.Conn, r *redis.Client, lm *lobby.LobbyManager, l *lobby.Lobby, logger *slog.Logger, username, lobbyId string) *WsClient {
+	// how should i get the redis client
+
 	return &WsClient{
 		Conn:         ws,
 		Username:     username,
 		LobbyID:      lobbyId,
 		LobbyManager: lm,
 		Lobby:        l,
-		Send:         make(chan WsResponse),
+		Send:         make(chan lobby.WsResponse),
 
-		clientRepo:  db.NewClientRepo(l.redisClient, l.logger),
-		redisClient: l.redisClient,
+		clientRepo:  db.NewClientRepo(r, logger),
+		redisClient: r,
 		logger:      logger,
 	}
 }
 
 func (s *WsClient) ReadPump() {
-	s.Lobby.logger.Info("wsClient.ReadPump",
+	s.logger.Info("wsClient.ReadPump",
 		slog.Group("starting readpump",
 			slog.String("lobby_id", s.Lobby.ID),
 			slog.String("usename", s.Username),
 		))
 
-	var payload WsPayload
+	var payload lobby.WsPayload
 
 	defer func() {
-		s.Lobby.logger.Info("wsClient.ReadPump",
+		s.logger.Info("wsClient.ReadPump",
 			slog.Group("Read Pump closing",
 				slog.String("username", s.Username)))
 
@@ -84,7 +87,7 @@ func (s *WsClient) ReadPump() {
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 			}
-			s.LobbyManager.logger.Error("wsClient.ReadPump",
+			s.logger.Error("wsClient.ReadPump",
 				slog.Group("Error occrured, terminating readpump",
 					slog.String("reason", err.Error())))
 			return
@@ -96,7 +99,7 @@ func (s *WsClient) ReadPump() {
 			// using redis pubsub to send channels instead
 			// s.Lobby.PayloadChan <- payload
 
-			if err := s.publishPayloadToLobby("payloadChanKey", payload); err != nil {
+			if err := s.publishPayloadToLobby(payload); err != nil {
 				s.logger.Error("wsClient.ReadPump",
 					slog.Group("error publishing to lobby",
 						slog.String("lobby_id", s.Lobby.ID),
@@ -104,7 +107,7 @@ func (s *WsClient) ReadPump() {
 			}
 
 		} else {
-			s.Lobby.logger.Error("wsClient.ReadPump",
+			s.logger.Error("wsClient.ReadPump",
 				slog.Group("Error occured, teminating readpump",
 					slog.String("reason", "lobby not found")))
 
@@ -121,9 +124,9 @@ func (s *WsClient) SubscribeToLobby() {
 			slog.String("lobby_id", s.Lobby.ID),
 			slog.String("username", s.Username)))
 
-	p := fmt.Sprintf("lobby.%v.player.responseChannel", s.Lobby.ID)
+	p := fmt.Sprintf("lobby.%v.responseChannel", s.Lobby.ID)
 	ctx, cancel := context.WithCancel(context.Background())
-    sub := s.redisClient.Subscribe(ctx, p)
+	sub := s.redisClient.Subscribe(ctx, p)
 	ticker := time.NewTicker(time.Minute)
 
 	defer func() {
@@ -143,14 +146,14 @@ func (s *WsClient) SubscribeToLobby() {
 				return
 			}
 			var b bytes.Buffer
-			var response WsResponse
+			var response lobby.WsResponse
 			err := response.Unmarshal(msg.Payload)
 			if err != nil {
 				fmt.Printf("ERR: %v\n", err)
 			}
 
 			switch response.Action {
-			case JoinResponseEvent:
+			case lobby.JoinResponseEvent:
 				if response.Sender != s.Username {
 					components.PlayerStatus(response.Message).Render(ctx, &b)
 					if err := s.sendResponse(b.String()); err != nil {
@@ -166,7 +169,7 @@ func (s *WsClient) SubscribeToLobby() {
 				}
 				b.Reset()
 
-			case NewMessageResponseEvent:
+			case lobby.NewMessageResponseEvent:
 				alt := fmt.Sprintf("avatar image for %v", s.Username)
 
 				if response.Sender == s.Username {
@@ -188,7 +191,7 @@ func (s *WsClient) SubscribeToLobby() {
 				}
 
 				b.Reset()
-			case ChooseColorResponseEvent:
+			case lobby.ChooseColorResponseEvent:
 				if s.Color == "" {
 					s.setColor(response)
 				} else {
@@ -215,7 +218,7 @@ func (s *WsClient) SubscribeToLobby() {
 				}
 				b.Reset()
 
-			case SetReadyStatusResponseEvent:
+			case lobby.SetReadyStatusResponseEvent:
 				if response.Sender == s.Username {
 					if s.Color == "" {
 						title := "Missing player color"
@@ -256,7 +259,7 @@ func (s *WsClient) SubscribeToLobby() {
 }
 
 // PublishPayloadToLobby sends a payload to the lobby
-func (s *WsClient) publishPayloadToLobby(channel string, payload WsPayload) error {
+func (s *WsClient) publishPayloadToLobby(payload lobby.WsPayload) error {
 	s.logger.Info("wsClient.PublishPayloadToLobby",
 		slog.Group("sending payload"))
 
@@ -265,7 +268,7 @@ func (s *WsClient) publishPayloadToLobby(channel string, payload WsPayload) erro
 		cancel()
 	}()
 
-	payloadChanKey := fmt.Sprintf("lobby.%v.player.%v", s.Lobby.ID, channel)
+	payloadChanKey := fmt.Sprintf("lobby.%v.player.payloadChannel", s.Lobby.ID)
 
 	pb, err := payload.MarshalBinary()
 	if err != nil {
@@ -288,7 +291,7 @@ func (s *WsClient) publishPayloadToLobby(channel string, payload WsPayload) erro
 }
 
 func (s *WsClient) WritePump() {
-	s.Lobby.logger.Info("wsClient.WritePump",
+	s.logger.Info("wsClient.WritePump",
 		slog.Group("starting write pump",
 			slog.String("lobby_id", s.Lobby.ID),
 			slog.String("usename", s.Username),
@@ -297,7 +300,7 @@ func (s *WsClient) WritePump() {
 	var b bytes.Buffer
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
-		s.LobbyManager.logger.Info("wsClient.WritePump",
+		s.logger.Info("wsClient.WritePump",
 			slog.Group("closing write pump",
 				slog.String("username", s.Username)))
 
@@ -317,7 +320,7 @@ func (s *WsClient) WritePump() {
 			// the incoming response action
 			switch response.Action {
 
-			case JoinResponseEvent:
+			case lobby.JoinResponseEvent:
 				if response.Sender != s.Username {
 					components.PlayerStatus(response.Message).Render(context.Background(), &b)
 					if err := s.sendResponse(b.String()); err != nil {
@@ -333,7 +336,7 @@ func (s *WsClient) WritePump() {
 				}
 				b.Reset()
 
-			case NewMessageResponseEvent:
+			case lobby.NewMessageResponseEvent:
 				alt := fmt.Sprintf("avatar image for %v", s.Username)
 
 				if response.Sender == s.Username {
@@ -356,7 +359,7 @@ func (s *WsClient) WritePump() {
 
 				b.Reset()
 
-			case ChooseColorResponseEvent:
+			case lobby.ChooseColorResponseEvent:
 				if s.Color == "" {
 					s.setColor(response)
 				} else {
@@ -380,7 +383,7 @@ func (s *WsClient) WritePump() {
 				}
 				b.Reset()
 
-			case LeftResponseEvent:
+			case lobby.LeftResponseEvent:
 				components.PlayerStatus(response.Message).Render(context.Background(), &b)
 				if err := s.sendResponse(b.String()); err != nil {
 					fmt.Println("[ACTION] left", err.Error())
@@ -389,7 +392,7 @@ func (s *WsClient) WritePump() {
 
 				b.Reset()
 
-			case SetReadyStatusResponseEvent:
+			case lobby.SetReadyStatusResponseEvent:
 				if response.Sender == s.Username {
 					if s.Color == "" {
 						title := "Missing player color"
@@ -419,8 +422,8 @@ func (s *WsClient) WritePump() {
 				}
 				b.Reset()
 
-			case StartGameResponseEvent:
-				s.Lobby.logger.Info("Starting game")
+			case lobby.StartGameResponseEvent:
+				s.logger.Info("Starting game")
 				views.Game(createWebsocketConnectionString(s.Lobby.ID)).Render(context.Background(), &b)
 				fmt.Printf("%v\n", b.String())
 				s.sendResponse(b.String())
@@ -442,7 +445,7 @@ func (s *WsClient) WritePump() {
 }
 
 // setColor sets the Player color
-func (s *WsClient) setColor(response WsResponse) {
+func (s *WsClient) setColor(response lobby.WsResponse) {
 	if response.Sender == s.Username {
 		s.Color = response.Message
 		s.Lobby.AvailableColors[s.Color] = false
@@ -451,7 +454,7 @@ func (s *WsClient) setColor(response WsResponse) {
 }
 
 // updateColor updates the player color and resets the previous color
-func (s *WsClient) updateColor(response WsResponse) {
+func (s *WsClient) updateColor(response lobby.WsResponse) {
 	if response.Sender == s.Username {
 		if response.Message != s.Color {
 			color := s.Color

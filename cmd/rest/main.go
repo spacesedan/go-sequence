@@ -28,8 +28,8 @@ func init() {
 
 func main() {
 	gob.Register(lobby.WsClient{})
-    gob.Register(lobby.WsPayload{})
-    gob.Register(lobby.WsResponse{})
+	gob.Register(lobby.WsPayload{})
+	gob.Register(lobby.WsResponse{})
 
 	errC, err := run()
 	if err != nil {
@@ -50,8 +50,8 @@ type ServerConfig struct {
 
 func run() (<-chan error, error) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-        Level: slog.LevelDebug,
-    }))
+		Level: slog.LevelDebug,
+	}))
 
 	rdb, err := internal.NewRedis(logger)
 	if err != nil {
@@ -114,7 +114,7 @@ func newServer(sc ServerConfig) (*http.Server, error) {
 
 	// Register handlers
 	handlers.NewLobbyHandler(lm, sc.logger).Register(r)
-	handlers.NewViewHandler(lm).Register(r)
+	handlers.NewViewHandler(sc.redis, lm).Register(r)
 
 	// handler static files
 	fs := http.FileServer(http.Dir("assets"))

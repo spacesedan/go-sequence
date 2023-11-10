@@ -7,10 +7,12 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/websocket"
-	"github.com/spacesedan/go-sequence/internal/views/components"
-	"github.com/spacesedan/go-sequence/internal/game"
+	"github.com/spacesedan/go-sequence/internal"
+	"github.com/spacesedan/go-sequence/internal/client"
 	"github.com/spacesedan/go-sequence/internal/lobby"
+	"github.com/spacesedan/go-sequence/internal/views/components"
 )
 
 var upgrader = websocket.Upgrader{
@@ -24,12 +26,14 @@ var upgrader = websocket.Upgrader{
 
 type LobbyHandler struct {
 	LobbyManager *lobby.LobbyManager
+	redisClient  *redis.Client
 	logger       *slog.Logger
 }
 
-func NewLobbyHandler(lm *lobby.LobbyManager, l *slog.Logger) *LobbyHandler {
+func NewLobbyHandler(r *redis.Client, lm *lobby.LobbyManager, l *slog.Logger) *LobbyHandler {
 	return &LobbyHandler{
 		LobbyManager: lm,
+		redisClient:  r,
 		logger:       l,
 	}
 }
@@ -61,6 +65,7 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// check to see if the lobby exists, if it doesn't send to home page
 	l, ok := lm.LobbyManager.LobbyExists(lobbyId)
 	if !ok {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -73,17 +78,12 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("%#v\n", l.Settings)
-
 	ok = l.HasPlayer(username)
-	session := lobby.NewWsClient(ws, lm.LobbyManager, l, lm.logger, username, l.ID)
+	session := client.NewWsClient(ws, lm.redisClient, lm.logger, username, l.ID)
 
-	l.RegisterChan <- session
-
-    go session.SubscribeToLobby()
-    go session.ReadPump()
+	go session.SubscribeToLobby()
+	go session.ReadPump()
 	// go session.WritePump()
-
 
 }
 
@@ -102,7 +102,7 @@ func (lm *LobbyHandler) handleCreateGameLobby(w http.ResponseWriter, r *http.Req
 	}
 
 	// create the lobby
-	lobbyId := lm.LobbyManager.NewLobby(game.Settings{
+	lobbyId := lm.LobbyManager.NewLobby(internal.Settings{
 		NumOfPlayers: numOfPlayers,
 		MaxHandSize:  maxHandSize,
 	})

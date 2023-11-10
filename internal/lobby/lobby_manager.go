@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/spacesedan/go-sequence/internal/game"
+	"github.com/spacesedan/go-sequence/internal"
 )
 
 const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -32,7 +32,6 @@ type WsPayload struct {
 	Action        PayloadEvent `json:"action"`
 	Message       string       `json:"message"`
 	Username      string       `json:"username"`
-	SenderSession *WsClient    `json:"-"`
 }
 
 func (p WsPayload) MarshalBinary() ([]byte, error) {
@@ -50,14 +49,13 @@ type LobbyManager struct {
 
 	lobbiesMu      sync.Mutex
 	Lobbies        map[string]*Lobby
-	Sessions       map[*WsClient]struct{}
 	RegisterChan   chan *Lobby
 	UnregisterChan chan *Lobby
 }
 
 func NewLobbyManager(r *redis.Client, l *slog.Logger) *LobbyManager {
 	l.Info("NewLobbyManager", slog.String("reason", "starting up lobby manager"))
-	devSettings := game.Settings{
+	devSettings := internal.Settings{
 		NumOfPlayers: 2,
 		MaxHandSize:  7,
 	}
@@ -69,7 +67,6 @@ func NewLobbyManager(r *redis.Client, l *slog.Logger) *LobbyManager {
 		Lobbies:        make(map[string]*Lobby),
 		RegisterChan:   make(chan *Lobby),
 		UnregisterChan: make(chan *Lobby),
-		Sessions:       make(map[*WsClient]struct{}),
 	}
 
 	lm.NewLobby(devSettings, "ASDA")

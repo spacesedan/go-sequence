@@ -6,15 +6,15 @@ import (
 
 	goredis "github.com/go-redis/redis/v8"
 	"github.com/gomodule/redigo/redis"
-	"github.com/spacesedan/go-sequence/internal/game"
+	"github.com/spacesedan/go-sequence/internal"
 )
 
 type LobbyRepo interface {
-	SetLobby(lobby *LobbyState) error
-	GetLobby(lobbyID string) (*LobbyState, error)
+	SetLobby(lobby *internal.Lobby) error
+	GetLobby(lobbyID string) (*internal.Lobby, error)
 	DeleteLobby(lobbyID string) error
 
-    SetPlayer(lobbyID string, player *PlayerState) error
+	SetPlayer(lobbyID string, player *internal.Player) error
 	DeletePlayer(lobby_id string, username string) error
 }
 
@@ -33,24 +33,16 @@ func NewLobbyRepo(r *goredis.Client, l *slog.Logger) LobbyRepo {
 	}
 }
 
-type LobbyState struct {
-	ID              string
-	CurrentState    CurrentState
-	Players         map[string]struct{}
-	ColorsAvailable map[string]bool
-	Settings        game.Settings
-}
-
 // SetLobby sets and updates the lobby state stored in the db using the lobby
-func (l *lobbyRepo) SetLobby(lobby *LobbyState) error {
+func (l *lobbyRepo) SetLobby(lobby *internal.Lobby) error {
 	l.logger.Info("lobbyRepo.SetLobby",
 		slog.Group("writing lobby to db"))
 
 	conn := l.redisClient
 	rh := NewReJSONHandler(conn)
 
-	_, err := rh.JSONSet(lobbyKey(lobby.ID), ".", &LobbyState{
-		CurrentState:    InLobby,
+	_, err := rh.JSONSet(lobbyKey(lobby.ID), ".", &internal.Lobby{
+		CurrentState:    lobby.CurrentState,
 		Settings:        lobby.Settings,
 		ColorsAvailable: lobby.ColorsAvailable,
 		Players:         lobby.Players,
@@ -64,14 +56,14 @@ func (l *lobbyRepo) SetLobby(lobby *LobbyState) error {
 }
 
 // SetPlayer sets and updates player data in the db
-func (l *lobbyRepo) SetPlayer(lobby_id string, p *PlayerState) error {
+func (l *lobbyRepo) SetPlayer(lobby_id string, p *internal.Player) error {
 	l.logger.Info("lobbyRepo.SetPlayer",
 		slog.Group("writing player to db",
 			slog.String("player", p.Username)))
 
 	rh := NewReJSONHandler(l.redisClient)
 
-	if _, err := rh.JSONSet(playerKey(lobby_id, p.Username), ".", &PlayerState{
+	if _, err := rh.JSONSet(playerKey(lobby_id, p.Username), ".", &internal.Player{
 		Username: p.Username,
 		LobbyId:  lobby_id,
 		Color:    p.Color,
@@ -84,12 +76,12 @@ func (l *lobbyRepo) SetPlayer(lobby_id string, p *PlayerState) error {
 }
 
 // GetLobby gets a lobby from teh db using the lobby id
-func (l *lobbyRepo) GetLobby(lobby_id string) (*LobbyState, error) {
+func (l *lobbyRepo) GetLobby(lobby_id string) (*internal.Lobby, error) {
 	l.logger.Info("lobbyRepo.GetLobby",
 		slog.Group("reading lobby from goredis",
 			slog.String("lobby_id", lobby_id)))
 
-	var lobbyState *LobbyState
+	var lobbyState *internal.Lobby
 
 	rh := NewReJSONHandler(l.redisClient)
 	lobbyJSON, err := redis.Bytes(rh.JSONGet(lobbyKey(lobby_id), "."))
@@ -135,27 +127,4 @@ func (l *lobbyRepo) DeletePlayer(lobby_id string, username string) error {
 
 	return nil
 
-}
-
-// Current state ... are the players in the lobby still choosing thier colors,
-// or are they in the game
-type CurrentState uint
-
-const (
-	Unknown CurrentState = iota
-	InLobby
-	InGame
-)
-
-// String get a stringified version of the current game state
-func (c CurrentState) String() string {
-	switch c {
-	case InLobby:
-		return "lobby"
-	case InGame:
-		return "game"
-	default:
-		return "unknown"
-
-	}
 }

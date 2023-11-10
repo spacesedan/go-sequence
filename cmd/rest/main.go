@@ -17,6 +17,7 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/spacesedan/go-sequence/cmd/internal"
+	"github.com/spacesedan/go-sequence/internal/client"
 	"github.com/spacesedan/go-sequence/internal/handlers"
 	"github.com/spacesedan/go-sequence/internal/lobby"
 	"github.com/spacesedan/go-sequence/internal/services"
@@ -27,7 +28,7 @@ func init() {
 }
 
 func main() {
-	gob.Register(lobby.WsClient{})
+	gob.Register(client.WsClient{})
 	gob.Register(lobby.WsPayload{})
 	gob.Register(lobby.WsResponse{})
 
@@ -113,7 +114,7 @@ func newServer(sc ServerConfig) (*http.Server, error) {
 	go lm.Run()
 
 	// Register handlers
-	handlers.NewLobbyHandler(lm, sc.logger).Register(r)
+	handlers.NewLobbyHandler(sc.redis, lm, sc.logger).Register(r)
 	handlers.NewViewHandler(sc.redis, lm).Register(r)
 
 	// handler static files

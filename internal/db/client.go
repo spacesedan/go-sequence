@@ -7,11 +7,12 @@ import (
 
 	goredis "github.com/go-redis/redis/v8"
 	"github.com/gomodule/redigo/redis"
+	"github.com/spacesedan/go-sequence/internal"
 )
 
 type ClientRepo interface {
-	GetPlayer(lobbyID string, username string) (*PlayerState, error)
-	GetMPlayers(lobbyID string, players []string) ([]*PlayerState, error)
+	GetPlayer(lobbyID string, username string) (*internal.Player, error)
+	GetMPlayers(lobbyID string, players []string) ([]*internal.Player, error)
 }
 
 type clientRepo struct {
@@ -26,22 +27,16 @@ func NewClientRepo(r *goredis.Client, l *slog.Logger) ClientRepo {
 	}
 }
 
-type PlayerState struct {
-	LobbyId  string `json:"lobby_id"`
-	Username string `json:"username"`
-	Color    string `json:"color"`
-	Ready    bool   `json:"ready"`
-}
 
 
 // GetPlayer gets a player from the db using the lobby id and player username
-func (c *clientRepo) GetPlayer(lobby_id string, username string) (*PlayerState, error) {
+func (c *clientRepo) GetPlayer(lobby_id string, username string) (*internal.Player, error) {
 	c.logger.Info("lobbyRepo.GetPlayer",
 		slog.Group("reading player from db",
 			slog.String("lobby_id", lobby_id),
 			slog.String("username", username)))
 
-	var ps *PlayerState
+	var ps *internal.Player
 
 	rh := NewReJSONHandler(c.redisClient)
 
@@ -59,11 +54,11 @@ func (c *clientRepo) GetPlayer(lobby_id string, username string) (*PlayerState, 
 }
 
 // GetMPlayers gets multiple players using lobby details
-func (c *clientRepo) GetMPlayers(lobbyID string, players []string) ([]*PlayerState, error) {
+func (c *clientRepo) GetMPlayers(lobbyID string, players []string) ([]*internal.Player, error) {
 	c.logger.Info("lobbyRepo.GetMPlayers",
 		slog.Group("reading all players from db for the lobby"))
 
-	var ps []*PlayerState
+	var ps []*internal.Player
 	var playerKeys []string
 
 	for _, username := range players {
@@ -79,7 +74,7 @@ func (c *clientRepo) GetMPlayers(lobbyID string, players []string) ([]*PlayerSta
 	}
 
 	for _, b := range pb {
-		var p *PlayerState
+		var p *internal.Player
 		err = json.Unmarshal(b, &p)
 		if err != nil {
 			return nil, err

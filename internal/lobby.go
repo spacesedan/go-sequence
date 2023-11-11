@@ -26,7 +26,7 @@ func (c CurrentState) String() string {
 type Lobby struct {
 	ID              string
 	CurrentState    CurrentState
-	Players         map[string]struct{}
+	Players         map[string]*Player
 	ColorsAvailable map[string]bool
 	Settings        Settings
 }

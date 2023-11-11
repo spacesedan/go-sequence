@@ -11,6 +11,7 @@ import (
 )
 
 type ClientRepo interface {
+	SetPlayer(lobbyID string, username string, playerState *internal.Player) error
 	GetPlayer(lobbyID string, username string) (*internal.Player, error)
 	GetMPlayers(lobbyID string, players []string) ([]*internal.Player, error)
 }
@@ -27,7 +28,21 @@ func NewClientRepo(r *goredis.Client, l *slog.Logger) ClientRepo {
 	}
 }
 
+func (c *clientRepo) SetPlayer(lobby_id string, username string, playerState *internal.Player) error {
+	c.logger.Info("lobbyRepo.SetPlayer",
+		slog.Group("writing player to db",
+			slog.String("lobby_id", lobby_id),
+			slog.String("username", username)))
 
+	rh := NewReJSONHandler(c.redisClient)
+
+	_, err := rh.JSONSet(playerKey(lobby_id, username), ".", playerState)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 // GetPlayer gets a player from the db using the lobby id and player username
 func (c *clientRepo) GetPlayer(lobby_id string, username string) (*internal.Player, error) {
@@ -86,4 +101,3 @@ func (c *clientRepo) GetMPlayers(lobbyID string, players []string) ([]*internal.
 	return ps, nil
 
 }
-

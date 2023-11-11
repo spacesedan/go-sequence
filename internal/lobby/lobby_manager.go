@@ -56,8 +56,8 @@ type LobbyManager struct {
 func NewLobbyManager(r *redis.Client, l *slog.Logger) *LobbyManager {
 	l.Info("NewLobbyManager", slog.String("reason", "starting up lobby manager"))
 	devSettings := internal.Settings{
-		NumOfPlayers: 2,
-		MaxHandSize:  7,
+		NumOfPlayers: 3,
+		MaxHandSize:  6,
 	}
 
 	lm := &LobbyManager{

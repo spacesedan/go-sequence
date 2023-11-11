@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -13,7 +12,6 @@ import (
 	"github.com/spacesedan/go-sequence/internal"
 	"github.com/spacesedan/go-sequence/internal/db"
 	"github.com/spacesedan/go-sequence/internal/lobby"
-	"github.com/spacesedan/go-sequence/internal/views/components"
 )
 
 const (
@@ -35,7 +33,7 @@ type WsClient struct {
 	Color   string
 	IsReady bool
 
-	playerState internal.Player
+	playerState *internal.Player
 	clientRepo  db.ClientRepo
 	redisClient *redis.Client
 	logger      *slog.Logger
@@ -70,12 +68,15 @@ func (p PublishChannel) String() string {
 
 func NewWsClient(ws *websocket.Conn, r *redis.Client, logger *slog.Logger, username, lobbyId string) *WsClient {
 	// how should i get the redis client
-
 	return &WsClient{
 		Conn:     ws,
 		Username: username,
 		LobbyID:  lobbyId,
 
+		playerState: &internal.Player{
+			Username: username,
+			LobbyId:  lobbyId,
+		},
 		clientRepo:  db.NewClientRepo(r, logger),
 		redisClient: r,
 		logger:      logger,
@@ -96,19 +97,19 @@ func (s *WsClient) ReadPump() {
 			slog.Group("Read Pump closing",
 				slog.String("username", s.Username)))
 
-		// when closing the read pump publish a message to the lobby to remove
-		// the player
+		// unregister the connection when the ws connection closes
 		s.publishToLobby(UnregisterChannel, lobby.WsPayload{
 			Action:   "unregister",
 			Username: s.Username,
 		})
 		s.Conn.Close()
+
 	}()
 
 	s.Conn.SetReadDeadline(time.Now().Add(pongWait))
 	s.Conn.SetPongHandler(func(string) error { s.Conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 
-	// send a message to the lobby to register the player
+	// register the session to the lobby
 	s.publishToLobby(RegisterChannel, lobby.WsPayload{
 		Action:   "register",
 		Username: s.Username,
@@ -146,17 +147,16 @@ func (s *WsClient) SubscribeToLobby() {
 	p := fmt.Sprintf("lobby.%v.responseChannel", s.LobbyID)
 	ctx, cancel := context.WithCancel(context.Background())
 	sub := s.redisClient.Subscribe(ctx, p)
+	ch := sub.Channel()
 	ticker := time.NewTicker(time.Minute)
 
 	defer func() {
-		sub.Unsubscribe(ctx, p)
 		sub.Close()
 		cancel()
 
 		ticker.Stop()
 	}()
 
-	ch := sub.Channel()
 	for {
 		select {
 		case msg, ok := <-ch:
@@ -164,109 +164,24 @@ func (s *WsClient) SubscribeToLobby() {
 				s.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			var b bytes.Buffer
 			var response lobby.WsResponse
 			err := response.Unmarshal(msg.Payload)
 			if err != nil {
 				fmt.Printf("ERR: %v\n", err)
+				return
 			}
 
 			fmt.Printf("%#v\n", response)
 
 			switch response.Action {
 			case lobby.JoinResponseEvent:
-				if response.Sender != s.Username {
-					components.PlayerStatus(response.Message).Render(ctx, &b)
-					if err := s.sendResponse(b.String()); err != nil {
-						fmt.Println("[ACTION] join_lobby", err.Error())
-						return
-					}
-				}
-				b.Reset()
-
-				components.PlayerDetails(response.ConnectedUsers).Render(ctx, &b)
-				if err := s.sendResponse(b.String()); err != nil {
-					return
-				}
-				b.Reset()
-
+				s.handleJoin(response)
 			case lobby.NewMessageResponseEvent:
-				alt := fmt.Sprintf("avatar image for %v", s.Username)
-
-				if response.Sender == s.Username {
-					components.ChatMessageSender(
-						response.Message,
-						alt,
-						generateUserAvatar(response.Sender, 32)).
-						Render(ctx, &b)
-				} else {
-					components.ChatMessageReciever(
-						response.Message,
-						alt,
-						generateUserAvatar(response.Sender, 32)).
-						Render(ctx, &b)
-				}
-				if err := s.sendResponse(b.String()); err != nil {
-					fmt.Println("[ACTION] new_chat_message", err.Error())
-					return
-				}
-
-				b.Reset()
+				s.handleChatMessage(response)
 			case lobby.ChooseColorResponseEvent:
-				if s.Color == "" {
-					s.setColor(response)
-				} else {
-					s.updateColor(response)
-				}
-
-				sender, err := s.clientRepo.GetPlayer(s.LobbyID, response.Sender)
-				if err != nil {
-					fmt.Printf("ERROR: %v\n", err)
-					return
-				}
-
-				err = components.PlayerDetailsColored(
-					sender.Username,
-					response.Message,
-					sender.Ready,
-				).Render(ctx, &b)
-				if err != nil {
-					fmt.Printf("ERR: %v\n", err)
-				}
-
-				if err := s.sendResponse(b.String()); err != nil {
-					return
-				}
-				b.Reset()
-
+				s.handleChooseColor(response)
 			case lobby.SetReadyStatusResponseEvent:
-				if response.Sender == s.Username {
-					if s.Color == "" {
-						title := "Missing player color"
-						content := "can't ready up without selecting a color"
-						components.ToastWSComponent(title, content).Render(context.Background(), &b)
-						s.sendResponse(b.String())
-						b.Reset()
-						continue
-					}
-				}
-
-				sender, err := s.clientRepo.GetPlayer(s.LobbyID, response.Sender)
-				if err != nil {
-					return
-				}
-
-				components.PlayerDetailsColored(
-					sender.Username,
-					sender.Color,
-					sender.Ready,
-				).
-					Render(context.Background(), &b)
-
-				if err := s.sendResponse(b.String()); err != nil {
-					return
-				}
-				b.Reset()
+				s.handlePlayerReady(response)
 			}
 
 		case <-ticker.C:
@@ -309,160 +224,6 @@ func (s *WsClient) publishToLobby(channel PublishChannel, payload lobby.WsPayloa
 	}
 	return nil
 }
-
-// func (s *WsClient) WritePump() {
-// 	s.logger.Info("wsClient.WritePump",
-// 		slog.Group("starting write pump",
-// 			slog.String("lobby_id", s.LobbyID),
-// 			slog.String("usename", s.Username),
-// 		))
-//
-// 	var b bytes.Buffer
-// 	ticker := time.NewTicker(pingPeriod)
-// 	defer func() {
-// 		s.logger.Info("wsClient.WritePump",
-// 			slog.Group("closing write pump",
-// 				slog.String("username", s.Username)))
-//
-// 		ticker.Stop()
-// 		s.Conn.Close()
-// 	}()
-//
-// 	for {
-// 		select {
-// 		case response, ok := <-s.Send:
-// 			if !ok {
-// 				s.Conn.WriteMessage(websocket.CloseMessage, []byte{})
-// 				return
-// 			}
-//
-// 			// Subscribes to incoming messages from the client send channel based on
-// 			// the incoming response action
-// 			switch response.Action {
-//
-// 			case lobby.JoinResponseEvent:
-// 				if response.Sender != s.Username {
-// 					components.PlayerStatus(response.Message).Render(context.Background(), &b)
-// 					if err := s.sendResponse(b.String()); err != nil {
-// 						fmt.Println("[ACTION] join_lobby", err.Error())
-// 						return
-// 					}
-// 				}
-// 				b.Reset()
-//
-// 				components.PlayerDetails(response.ConnectedUsers).Render(context.Background(), &b)
-// 				if err := s.sendResponse(b.String()); err != nil {
-// 					return
-// 				}
-// 				b.Reset()
-//
-// 			case lobby.NewMessageResponseEvent:
-// 				alt := fmt.Sprintf("avatar image for %v", s.Username)
-//
-// 				if response.Sender == s.Username {
-// 					components.ChatMessageSender(
-// 						response.Message,
-// 						alt,
-// 						generateUserAvatar(response.Sender, 32)).
-// 						Render(context.Background(), &b)
-// 				} else {
-// 					components.ChatMessageReciever(
-// 						response.Message,
-// 						alt,
-// 						generateUserAvatar(response.Sender, 32)).
-// 						Render(context.Background(), &b)
-// 				}
-// 				if err := s.sendResponse(b.String()); err != nil {
-// 					fmt.Println("[ACTION] new_chat_message", err.Error())
-// 					return
-// 				}
-//
-// 				b.Reset()
-//
-// 			case lobby.ChooseColorResponseEvent:
-// 				if s.Color == "" {
-// 					s.setColor(response)
-// 				} else {
-// 					s.updateColor(response)
-// 				}
-//
-// 				sender, err := s.clientRepo.GetPlayer(s.LobbyID, response.Sender)
-// 				if err != nil {
-// 					return
-// 				}
-//
-// 				components.PlayerDetailsColored(
-// 					sender.Username,
-// 					sender.Color,
-// 					sender.Ready,
-// 				).
-// 					Render(context.Background(), &b)
-//
-// 				if err := s.sendResponse(b.String()); err != nil {
-// 					return
-// 				}
-// 				b.Reset()
-//
-// 			case lobby.LeftResponseEvent:
-// 				components.PlayerStatus(response.Message).Render(context.Background(), &b)
-// 				if err := s.sendResponse(b.String()); err != nil {
-// 					fmt.Println("[ACTION] left", err.Error())
-// 					return
-// 				}
-//
-// 				b.Reset()
-//
-// 			case lobby.SetReadyStatusResponseEvent:
-// 				if response.Sender == s.Username {
-// 					if s.Color == "" {
-// 						title := "Missing player color"
-// 						content := "can't ready up without selecting a color"
-// 						components.ToastWSComponent(title, content).Render(context.Background(), &b)
-// 						s.sendResponse(b.String())
-// 						b.Reset()
-// 						continue
-// 					}
-// 					s.Lobby.ReadyChan <- s
-// 				}
-//
-// 				sender, err := s.clientRepo.GetPlayer(s.LobbyID, response.Sender)
-// 				if err != nil {
-// 					return
-// 				}
-//
-// 				components.PlayerDetailsColored(
-// 					sender.Username,
-// 					sender.Color,
-// 					sender.Ready,
-// 				).
-// 					Render(context.Background(), &b)
-//
-// 				if err := s.sendResponse(b.String()); err != nil {
-// 					return
-// 				}
-// 				b.Reset()
-//
-// 			case lobby.StartGameResponseEvent:
-// 				s.logger.Info("Starting game")
-// 				views.Game(createWebsocketConnectionString(s.LobbyID)).Render(context.Background(), &b)
-// 				fmt.Printf("%v\n", b.String())
-// 				s.sendResponse(b.String())
-// 				b.Reset()
-//
-// 			default:
-// 				fmt.Printf("\n%#v\n", response)
-// 				return
-// 			}
-// 		case <-ticker.C:
-// 			s.Conn.SetWriteDeadline(time.Now().Add(writeWait))
-// 			if err := s.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-// 				fmt.Println("[ACTION] ticker", err.Error())
-// 				return
-// 			}
-// 		}
-//
-// 	}
-// }
 
 // setColor sets the Player color
 func (s *WsClient) setColor(response lobby.WsResponse) {

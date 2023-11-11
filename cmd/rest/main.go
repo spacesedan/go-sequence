@@ -80,6 +80,8 @@ func run() (<-chan error, error) {
 		ctxTimeout, cancel := context.WithTimeout(context.Background(), time.Second*5)
 
 		defer func() {
+            rdb.Close()
+
 			cancel()
 			stop()
 			close(errC)

@@ -14,6 +14,7 @@ type LobbyRepo interface {
 	GetLobby(lobbyID string) (*internal.Lobby, error)
 	DeleteLobby(lobbyID string) error
 
+	GetPlayer(lobbyID string, username string) (*internal.Player, error)
 	SetPlayer(lobbyID string, player *internal.Player) error
 	DeletePlayer(lobby_id string, username string) error
 }
@@ -42,6 +43,7 @@ func (l *lobbyRepo) SetLobby(lobby *internal.Lobby) error {
 	rh := NewReJSONHandler(conn)
 
 	_, err := rh.JSONSet(lobbyKey(lobby.ID), ".", &internal.Lobby{
+		ID:              lobby.ID,
 		CurrentState:    lobby.CurrentState,
 		Settings:        lobby.Settings,
 		ColorsAvailable: lobby.ColorsAvailable,
@@ -49,26 +51,6 @@ func (l *lobbyRepo) SetLobby(lobby *internal.Lobby) error {
 	})
 
 	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// SetPlayer sets and updates player data in the db
-func (l *lobbyRepo) SetPlayer(lobby_id string, p *internal.Player) error {
-	l.logger.Info("lobbyRepo.SetPlayer",
-		slog.Group("writing player to db",
-			slog.String("player", p.Username)))
-
-	rh := NewReJSONHandler(l.redisClient)
-
-	if _, err := rh.JSONSet(playerKey(lobby_id, p.Username), ".", &internal.Player{
-		Username: p.Username,
-		LobbyId:  lobby_id,
-		Color:    p.Color,
-		Ready:    p.Ready,
-	}); err != nil {
 		return err
 	}
 
@@ -109,6 +91,50 @@ func (l *lobbyRepo) DeleteLobby(lobby_id string) error {
 		return err
 	}
 	return nil
+}
+
+// SetPlayer sets and updates player data in the db
+func (l *lobbyRepo) SetPlayer(lobby_id string, p *internal.Player) error {
+	l.logger.Info("lobbyRepo.SetPlayer",
+		slog.Group("writing player to db",
+			slog.String("player", p.Username)))
+
+	rh := NewReJSONHandler(l.redisClient)
+
+	if _, err := rh.JSONSet(playerKey(lobby_id, p.Username), ".", &internal.Player{
+		Username: p.Username,
+		LobbyId:  lobby_id,
+		Color:    p.Color,
+		Ready:    p.Ready,
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetPlayer gets a player from the db using the lobby id and player username
+func (l *lobbyRepo) GetPlayer(lobby_id string, username string) (*internal.Player, error) {
+	l.logger.Info("lobbyRepo.GetPlayer",
+		slog.Group("reading player from db",
+			slog.String("lobby_id", lobby_id),
+			slog.String("username", username)))
+
+	var ps *internal.Player
+
+	rh := NewReJSONHandler(l.redisClient)
+
+	pj, err := redis.Bytes(rh.JSONGet(playerKey(lobby_id, username), "."))
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(pj, &ps)
+	if err != nil {
+		return nil, err
+	}
+
+	return ps, nil
 }
 
 // DeletePlayer deletes a player from the db

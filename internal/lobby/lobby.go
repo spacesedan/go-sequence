@@ -19,13 +19,15 @@ type Lobby struct {
 	Game            game.GameService
 	AvailableColors map[string]bool
 	Settings        internal.Settings
-	Players         map[string]struct{}
+	Players         map[string]*internal.Player
 
 	lobbyState   *internal.Lobby
 	lobbyRepo    db.LobbyRepo
 	lobbyManager *LobbyManager
 	logger       *slog.Logger
 	redisClient  *redis.Client
+
+	errorChan chan error
 }
 
 // Create a new lobby
@@ -55,12 +57,13 @@ func (m *LobbyManager) NewLobby(settings internal.Settings, id ...string) string
 		Game:            game.NewGameService(),
 		Settings:        settings,
 		AvailableColors: colors,
-		Players:         make(map[string]struct{}),
+		Players:         make(map[string]*internal.Player),
 
 		lobbyManager: m,
 		logger:       m.logger,
 		redisClient:  m.redisClient,
 		lobbyRepo:    db.NewLobbyRepo(m.redisClient, m.logger),
+		errorChan:    make(chan error, 1),
 	}
 
 	l.lobbyRepo.SetLobby(&internal.Lobby{
@@ -104,7 +107,6 @@ func (l *Lobby) Subscribe() {
 	sub := l.redisClient.PSubscribe(ctx, chanKey)
 
 	defer func() {
-		sub.Unsubscribe(ctx, chanKey)
 		sub.Close()
 
 		ticker.Stop()
@@ -119,12 +121,12 @@ func (l *Lobby) Subscribe() {
 			if !ok {
 				return
 			}
-            if err := payload.Unmarshal(msg.Payload); err != nil {
-                l.logger.Error("lobby.Subscribe",
-                slog.Group("failed to unmarshal payload",
-                slog.Any("reason", err)))
-                return
-            }
+			if err := payload.Unmarshal(msg.Payload); err != nil {
+				l.logger.Error("lobby.Subscribe",
+					slog.Group("failed to unmarshal payload",
+						slog.Any("reason", err)))
+				return
+			}
 			switch msg.Channel {
 			case fmt.Sprintf("lobby.%v.registerChannel", l.ID):
 				l.handleRegisterSession(payload)
@@ -134,6 +136,12 @@ func (l *Lobby) Subscribe() {
 				l.handlePayload(payload)
 			}
 
+		case err := <-l.errorChan:
+			l.logger.Error("lobby.Subscribe",
+				slog.Group("something went wrong",
+					slog.Any("reason", err)))
+
+			return
 		case <-ticker.C:
 			err := sub.Ping(ctx)
 			if err != nil {
@@ -177,14 +185,15 @@ func (l *Lobby) handleRegisterSession(payload WsPayload) {
 			slog.String("lobby_id", l.ID),
 			slog.String("user", payload.Username)))
 
-	l.Players[payload.Username] = struct{}{}
-
-	l.lobbyRepo.SetPlayer(l.ID, &internal.Player{
+	playerState := &internal.Player{
 		Username: payload.Username,
 		LobbyId:  l.ID,
 		Color:    "",
 		Ready:    false,
-	})
+	}
+
+	l.Players[payload.Username] = playerState
+	l.lobbyRepo.SetPlayer(l.ID, playerState)
 
 }
 
@@ -239,6 +248,7 @@ func (l *Lobby) handlePayload(payload WsPayload) {
 		response.ConnectedUsers = l.getPlayerUsernames()
 		if err := l.publishResponse(response); err != nil {
 			fmt.Printf("ERROR: %v\n", err)
+			l.errorChan <- err
 		}
 
 	case LeavePayloadEvent:
@@ -248,6 +258,7 @@ func (l *Lobby) handlePayload(payload WsPayload) {
 		response.Sender = payload.Username
 		response.ConnectedUsers = l.getPlayerUsernames()
 		if err := l.publishResponse(response); err != nil {
+			l.errorChan <- err
 		}
 
 	case ChatPayloadEvent:
@@ -257,14 +268,26 @@ func (l *Lobby) handlePayload(payload WsPayload) {
 		response.Sender = payload.Username
 		response.ConnectedUsers = l.getPlayerUsernames()
 		if err := l.publishResponse(response); err != nil {
+			l.errorChan <- err
 		}
 
 	case ChooseColorPayloadEvent:
+		senderState, err := l.lobbyRepo.GetPlayer(l.ID, payload.Username)
+		if err != nil {
+			l.errorChan <- err
+		}
+		senderState.Color = payload.Message
+		l.lobbyRepo.SetPlayer(l.ID, senderState)
+		l.Players[payload.Username] = senderState
+		l.lobbyRepo.SetLobby(toLobbyState(l))
+
 		response.Action = ChooseColorResponseEvent
 		response.Sender = payload.Username
 		response.Message = payload.Message
+		response.ConnectedUsers = l.getPlayerUsernames()
 		response.SkipSender = false
 		if err := l.publishResponse(response); err != nil {
+			l.errorChan <- err
 		}
 
 	case SetReadyStatusPayloadEvent:
@@ -273,6 +296,7 @@ func (l *Lobby) handlePayload(payload WsPayload) {
 		response.Sender = payload.Username
 		response.SkipSender = false
 		if err := l.publishResponse(response); err != nil {
+			l.errorChan <- err
 		}
 
 	}

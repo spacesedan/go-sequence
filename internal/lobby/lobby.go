@@ -185,16 +185,19 @@ func (l *Lobby) handleRegisterSession(payload WsPayload) {
 			slog.String("lobby_id", l.ID),
 			slog.String("user", payload.Username)))
 
-	playerState := &internal.Player{
-		Username: payload.Username,
-		LobbyId:  l.ID,
-		Color:    "",
-		Ready:    false,
+	var ps *internal.Player
+	ps, _ = l.lobbyRepo.GetPlayer(l.ID, payload.Username)
+	if ps == nil {
+		ps = &internal.Player{
+			Username: payload.Username,
+			LobbyId:  l.ID,
+			Color:    "",
+			Ready:    false,
+		}
+
 	}
 
-	l.Players[payload.Username] = playerState
-	l.lobbyRepo.SetPlayer(l.ID, playerState)
-
+	l.Players[payload.Username] = ps
 }
 
 func (l *Lobby) handleUnregisterSession(payload WsPayload) {
@@ -206,7 +209,10 @@ func (l *Lobby) handleUnregisterSession(payload WsPayload) {
 	if _, ok := l.Players[payload.Username]; ok {
 		delete(l.Players, payload.Username)
 		l.lobbyRepo.SetLobby(toLobbyState(l))
-		l.lobbyRepo.DeletePlayer(l.ID, payload.Username)
+		// instead of calling to delete ill just remove the
+		// the player from the the Player list and let the
+		// unregistered player data to expire.
+		// l.lobbyRepo.DeletePlayer(l.ID, payload.Username)
 	}
 
 }
@@ -291,6 +297,13 @@ func (l *Lobby) handlePayload(payload WsPayload) {
 		}
 
 	case SetReadyStatusPayloadEvent:
+        senderState, err := l.lobbyRepo.GetPlayer(l.ID, payload.Username)
+        if err != nil {
+            l.errorChan <- err
+        }
+        senderState.Ready = true
+        l.lobbyRepo.SetPlayer(l.ID, senderState)
+
 		response.Action = SetReadyStatusResponseEvent
 		response.Message = payload.Message
 		response.Sender = payload.Username

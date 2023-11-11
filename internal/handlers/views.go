@@ -10,7 +10,6 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/spacesedan/go-sequence/internal/lobby"
 	"github.com/spacesedan/go-sequence/internal/views"
-	"github.com/spacesedan/go-sequence/internal/views/components"
 )
 
 // might want to set up state for other parts of the site so having easier access
@@ -78,18 +77,10 @@ func (v ViewHandler) handleLobbyPage(w http.ResponseWriter, r *http.Request) {
 
 	lobbyID := chi.URLParam(r, "lobbyID")
 	lobbyID = strings.Trim(lobbyID, " ")
-	l, exists := v.LobbyManager.LobbyExists(lobbyID)
+	_, exists := v.LobbyManager.LobbyExists(lobbyID)
 
 	if !exists {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
-	if len(l.Players) == l.Settings.NumOfPlayers {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		topic := "Lobby full"
-		content := "cannot join lobby, already at max capacity"
-		components.ToastComponent(topic, content).Render(r.Context(), w)
 		return
 	}
 

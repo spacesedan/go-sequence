@@ -37,6 +37,7 @@ type WsClient struct {
 	clientRepo  db.ClientRepo
 	redisClient *redis.Client
 	logger      *slog.Logger
+	errorChan   chan error
 }
 
 type PublishChannel uint
@@ -67,19 +68,27 @@ func (p PublishChannel) String() string {
 }
 
 func NewWsClient(ws *websocket.Conn, r *redis.Client, logger *slog.Logger, username, lobbyId string) *WsClient {
+    var ps *internal.Player
+	cr := db.NewClientRepo(r, logger)
+	ps, _ = cr.GetPlayer(lobbyId, username)
+
+    if ps == nil {
+        ps = &internal.Player{
+            Username: username,
+            LobbyId: lobbyId,
+        }
+    }
 	// how should i get the redis client
 	return &WsClient{
 		Conn:     ws,
 		Username: username,
 		LobbyID:  lobbyId,
 
-		playerState: &internal.Player{
-			Username: username,
-			LobbyId:  lobbyId,
-		},
-		clientRepo:  db.NewClientRepo(r, logger),
+		playerState: ps,
+		clientRepo:  cr,
 		redisClient: r,
 		logger:      logger,
+		errorChan:   make(chan error, 1),
 	}
 }
 
@@ -183,6 +192,9 @@ func (s *WsClient) SubscribeToLobby() {
 			case lobby.SetReadyStatusResponseEvent:
 				s.handlePlayerReady(response)
 			}
+
+		case <-s.errorChan:
+			return
 
 		case <-ticker.C:
 			err := sub.Ping(ctx)

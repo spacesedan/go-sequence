@@ -36,7 +36,7 @@ func (c *clientRepo) SetPlayer(lobby_id string, username string, playerState *in
 
 	rh := NewReJSONHandler(c.redisClient)
 
-	_, err := rh.JSONSet(playerKey(lobby_id, username), ".", playerState)
+	_, err := rh.JSONSet(playerKey(lobby_id, username), playerState)
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (c *clientRepo) GetPlayer(lobby_id string, username string) (*internal.Play
 
 	rh := NewReJSONHandler(c.redisClient)
 
-	pj, err := redis.Bytes(rh.JSONGet(playerKey(lobby_id, username), "."))
+	pj, err := redis.Bytes(rh.rj.JSONGet(playerKey(lobby_id, username), "."))
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (c *clientRepo) GetMPlayers(lobbyID string, players []string) ([]*internal.
 
 	rh := NewReJSONHandler(c.redisClient)
 
-	pb, err := redis.ByteSlices(rh.JSONMGet(".", playerKeys...))
+	pb, err := redis.ByteSlices(rh.rj.JSONMGet(".", playerKeys...))
 	if err != nil {
 		fmt.Println(err)
 		return nil, err

@@ -1,7 +1,9 @@
 package db
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/nitishm/go-rejson/v4"
@@ -10,7 +12,8 @@ import (
 // reJSONHandler goredis JSON handler connects to the redis pool and handles a
 // single query
 type reJSONHandler struct {
-	*rejson.Handler
+	rj  *rejson.Handler
+	rdb *redis.Client
 }
 
 // NewReJSONHandler
@@ -18,7 +21,24 @@ func NewReJSONHandler(conn *redis.Client) reJSONHandler {
 	rh := rejson.NewReJSONHandler()
 	rh.SetGoRedisClient(conn)
 
-	return reJSONHandler{rh}
+	return reJSONHandler{rj: rh, rdb: conn}
+}
+
+func (r *reJSONHandler) JSONSet(key string, obj interface{}) (interface{}, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	res, err := r.rj.JSONSet(key, ".", obj)
+	if err != nil {
+		return res, err
+	}
+	err = r.rdb.Expire(ctx, key, time.Minute*30).Err()
+	if err != nil {
+		return res, err
+	}
+
+	return res, nil
+
 }
 
 // lobbyKey helper that returns a string used to associate the lobby in goredis

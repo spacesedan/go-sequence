@@ -11,6 +11,7 @@ func NewRedis(logger *slog.Logger) (*redis.Client, error) {
 	var err error
 	rdb := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
+
 	})
 
 	res := rdb.Ping(context.Background())

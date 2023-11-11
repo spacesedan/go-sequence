@@ -42,7 +42,7 @@ func (l *lobbyRepo) SetLobby(lobby *internal.Lobby) error {
 	conn := l.redisClient
 	rh := NewReJSONHandler(conn)
 
-	_, err := rh.JSONSet(lobbyKey(lobby.ID), ".", &internal.Lobby{
+	_, err := rh.JSONSet(lobbyKey(lobby.ID), &internal.Lobby{
 		ID:              lobby.ID,
 		CurrentState:    lobby.CurrentState,
 		Settings:        lobby.Settings,
@@ -66,7 +66,7 @@ func (l *lobbyRepo) GetLobby(lobby_id string) (*internal.Lobby, error) {
 	var lobbyState *internal.Lobby
 
 	rh := NewReJSONHandler(l.redisClient)
-	lobbyJSON, err := redis.Bytes(rh.JSONGet(lobbyKey(lobby_id), "."))
+	lobbyJSON, err := redis.Bytes(rh.rj.JSONGet(lobbyKey(lobby_id), "."))
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (l *lobbyRepo) DeleteLobby(lobby_id string) error {
 
 	rh := NewReJSONHandler(l.redisClient)
 
-	if _, err := rh.JSONDel(lobbyKey(lobby_id), "."); err != nil {
+	if _, err := rh.rj.JSONDel(lobbyKey(lobby_id), "."); err != nil {
 		return err
 	}
 	return nil
@@ -101,7 +101,7 @@ func (l *lobbyRepo) SetPlayer(lobby_id string, p *internal.Player) error {
 
 	rh := NewReJSONHandler(l.redisClient)
 
-	if _, err := rh.JSONSet(playerKey(lobby_id, p.Username), ".", &internal.Player{
+	if _, err := rh.JSONSet(playerKey(lobby_id, p.Username), &internal.Player{
 		Username: p.Username,
 		LobbyId:  lobby_id,
 		Color:    p.Color,
@@ -124,7 +124,7 @@ func (l *lobbyRepo) GetPlayer(lobby_id string, username string) (*internal.Playe
 
 	rh := NewReJSONHandler(l.redisClient)
 
-	pj, err := redis.Bytes(rh.JSONGet(playerKey(lobby_id, username), "."))
+	pj, err := redis.Bytes(rh.rj.JSONGet(playerKey(lobby_id, username), "."))
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func (l *lobbyRepo) DeletePlayer(lobby_id string, username string) error {
 
 	rh := NewReJSONHandler(l.redisClient)
 
-	_, err := rh.JSONDel(playerKey(lobby_id, username), ".")
+	_, err := rh.rj.JSONDel(playerKey(lobby_id, username), ".")
 	if err != nil {
 		return err
 	}

@@ -17,7 +17,7 @@ type Lobby struct {
 	// game data
 	ID              string
 	Game            game.GameService
-	AvailableColors map[string]bool
+	ColorsAvailable map[string]bool
 	Settings        internal.Settings
 	Players         map[string]*internal.Player
 
@@ -56,7 +56,7 @@ func (m *LobbyManager) NewLobby(settings internal.Settings, id ...string) string
 		ID:              lobbyId,
 		Game:            game.NewGameService(),
 		Settings:        settings,
-		AvailableColors: colors,
+		ColorsAvailable: colors,
 		Players:         make(map[string]*internal.Player),
 
 		lobbyManager: m,
@@ -70,7 +70,7 @@ func (m *LobbyManager) NewLobby(settings internal.Settings, id ...string) string
 		ID:              l.ID,
 		Players:         l.Players,
 		Settings:        l.Settings,
-		ColorsAvailable: l.AvailableColors,
+		ColorsAvailable: l.ColorsAvailable,
 	})
 
 	m.Lobbies[lobbyId] = l
@@ -339,7 +339,7 @@ func toLobbyState(l *Lobby) *internal.Lobby {
 	return &internal.Lobby{
 		ID:              l.ID,
 		Players:         l.Players,
-		ColorsAvailable: l.AvailableColors,
+		ColorsAvailable: l.ColorsAvailable,
 		Settings:        l.Settings,
 	}
 }

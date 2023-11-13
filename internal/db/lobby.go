@@ -17,11 +17,14 @@ type LobbyRepo interface {
 	GetPlayer(lobbyID string, username string) (*internal.Player, error)
 	SetPlayer(lobbyID string, player *internal.Player) error
 	DeletePlayer(lobby_id string, username string) error
+
+	Expire(lobbyID string, username string)
 }
 
 // LobbyRepo responsible for interfacing with the data stored in the cache
 type lobbyRepo struct {
 	redisClient *goredis.Client
+	rj          reJSONHandler
 	logger      *slog.Logger
 }
 
@@ -30,6 +33,7 @@ func NewLobbyRepo(r *goredis.Client, l *slog.Logger) LobbyRepo {
 	l.Info("lobby.NewLobbyRepo: created new lobby repo")
 	return &lobbyRepo{
 		redisClient: r,
+		rj:          NewReJSONHandler(r),
 		logger:      l,
 	}
 }
@@ -153,4 +157,8 @@ func (l *lobbyRepo) DeletePlayer(lobby_id string, username string) error {
 
 	return nil
 
+}
+
+func (l *lobbyRepo) Expire(lobby_id string, u string) {
+	l.rj.Expire(playerKey(lobby_id, u))
 }

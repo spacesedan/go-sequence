@@ -21,6 +21,7 @@ type Lobby struct {
 	Settings        internal.Settings
 	Players         map[string]*internal.Player
 
+	handler      LobbyHandler
 	lobbyState   *internal.Lobby
 	lobbyRepo    db.LobbyRepo
 	lobbyManager *LobbyManager
@@ -58,12 +59,11 @@ func (m *LobbyManager) NewLobby(settings internal.Settings, id ...string) string
 		Settings:        settings,
 		ColorsAvailable: colors,
 		Players:         make(map[string]*internal.Player),
-
-		lobbyManager: m,
-		logger:       m.logger,
-		redisClient:  m.redisClient,
-		lobbyRepo:    db.NewLobbyRepo(m.redisClient, m.logger),
-		errorChan:    make(chan error, 1),
+		lobbyManager:    m,
+		logger:          m.logger,
+		redisClient:     m.redisClient,
+		lobbyRepo:       db.NewLobbyRepo(m.redisClient, m.logger),
+		errorChan:       make(chan error, 1),
 	}
 
 	l.lobbyRepo.SetLobby(&internal.Lobby{
@@ -72,6 +72,8 @@ func (m *LobbyManager) NewLobby(settings internal.Settings, id ...string) string
 		Settings:        l.Settings,
 		ColorsAvailable: l.ColorsAvailable,
 	})
+
+	l.handler = NewLobbyHandler(m.redisClient, l, l.logger)
 
 	m.Lobbies[lobbyId] = l
 
@@ -129,9 +131,10 @@ func (l *Lobby) Subscribe() {
 			}
 			switch msg.Channel {
 			case fmt.Sprintf("lobby.%v.registerChannel", l.ID):
-				l.handleRegisterSession(payload)
+				l.handler.RegisterPlayer(payload)
 			case fmt.Sprintf("lobby.%v.unregisterChannel", l.ID):
-				l.handleUnregisterSession(payload)
+                l.handler.DeregisterPlayer(payload)
+				// l.handleUnregisterSession(payload)
 			case fmt.Sprintf("lobby.%v.payloadChannel", l.ID):
 				l.handlePayload(payload)
 			}
@@ -158,9 +161,8 @@ func (l *Lobby) publishResponse(response WsResponse) error {
 			slog.String("lobby_id", l.ID)))
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer func() {
-		cancel()
-	}()
+	defer cancel()
+
 	responseChanKey := fmt.Sprintf("lobby.%v.responseChannel", l.ID)
 
 	rb, err := response.MarshalBinary()
@@ -177,27 +179,6 @@ func (l *Lobby) publishResponse(response WsResponse) error {
 		return err
 	}
 	return nil
-}
-
-func (l *Lobby) handleRegisterSession(payload WsPayload) {
-	l.logger.Info("lobby.handleRegisterSession",
-		slog.Group("Registering player connection",
-			slog.String("lobby_id", l.ID),
-			slog.String("user", payload.Username)))
-
-	var ps *internal.Player
-	ps, _ = l.lobbyRepo.GetPlayer(l.ID, payload.Username)
-	if ps == nil {
-		ps = &internal.Player{
-			Username: payload.Username,
-			LobbyId:  l.ID,
-			Color:    "",
-			Ready:    false,
-		}
-
-	}
-
-	l.Players[payload.Username] = ps
 }
 
 func (l *Lobby) handleUnregisterSession(payload WsPayload) {
@@ -280,7 +261,8 @@ func (l *Lobby) handlePayload(payload WsPayload) {
 	case ChooseColorPayloadEvent:
 		senderState, err := l.lobbyRepo.GetPlayer(l.ID, payload.Username)
 		if err != nil {
-			l.errorChan <- err
+
+			l.errorChan <- fmt.Errorf("lobby.Subscribe err: ")
 		}
 		senderState.Color = payload.Message
 		l.lobbyRepo.SetPlayer(l.ID, senderState)
@@ -297,12 +279,12 @@ func (l *Lobby) handlePayload(payload WsPayload) {
 		}
 
 	case SetReadyStatusPayloadEvent:
-        senderState, err := l.lobbyRepo.GetPlayer(l.ID, payload.Username)
-        if err != nil {
-            l.errorChan <- err
-        }
-        senderState.Ready = true
-        l.lobbyRepo.SetPlayer(l.ID, senderState)
+		senderState, err := l.lobbyRepo.GetPlayer(l.ID, payload.Username)
+		if err != nil {
+			l.errorChan <- err
+		}
+		senderState.Ready = true
+		l.lobbyRepo.SetPlayer(l.ID, senderState)
 
 		response.Action = SetReadyStatusResponseEvent
 		response.Message = payload.Message

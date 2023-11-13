@@ -81,9 +81,10 @@ func (lm *LobbyHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	ok = l.HasPlayer(username)
 	session := client.NewWsClient(ws, lm.redisClient, lm.logger, username, l.ID)
 
+    // registers to the lobby
+    go session.ReadPump()
+    // listens to the lobby
 	go session.SubscribeToLobby()
-	go session.ReadPump()
-	// go session.WritePump()
 
 }
 

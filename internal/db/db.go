@@ -41,6 +41,16 @@ func (r *reJSONHandler) JSONSet(key string, obj interface{}) (interface{}, error
 
 }
 
+// instead of deleting player connect i want to set a certain amount of time
+// allowed for them to reconnect. If they do not come back in an alloted amount of
+// time their session information would be deleted from the db
+func (r *reJSONHandler) Expire(k string) bool {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	return r.rdb.Expire(ctx, k, time.Second*30).Val()
+}
+
 // lobbyKey helper that returns a string used to associate the lobby in goredis
 func lobbyKey(lobby_id string) string {
 	return fmt.Sprintf("lobby_id-%v.gamestate", lobby_id)

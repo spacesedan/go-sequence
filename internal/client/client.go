@@ -68,24 +68,16 @@ func (p PublishChannel) String() string {
 }
 
 func NewWsClient(ws *websocket.Conn, r *redis.Client, logger *slog.Logger, username, lobbyId string) *WsClient {
-    var ps *internal.Player
-	cr := db.NewClientRepo(r, logger)
-	ps, _ = cr.GetPlayer(lobbyId, username)
 
-    if ps == nil {
-        ps = &internal.Player{
-            Username: username,
-            LobbyId: lobbyId,
-        }
-    }
 	// how should i get the redis client
+    // passed it to the redis client to the lobbyHandler.
 	return &WsClient{
 		Conn:     ws,
 		Username: username,
 		LobbyID:  lobbyId,
 
-		playerState: ps,
-		clientRepo:  cr,
+		playerState: &internal.Player{},
+		clientRepo:  db.NewClientRepo(r, logger),
 		redisClient: r,
 		logger:      logger,
 		errorChan:   make(chan error, 1),

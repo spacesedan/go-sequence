@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sort"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -13,6 +12,33 @@ import (
 	"github.com/spacesedan/go-sequence/internal/game"
 )
 
+type LobbyChannel uint
+
+const (
+	UnknownChannel LobbyChannel = iota
+	RegisterChannel
+	DeregisterChannel
+	PayloadChannel
+    StateChannel
+)
+
+func (c LobbyChannel) String(lobby_id string) string {
+	switch c {
+	case UnknownChannel:
+		return "unknown"
+	case RegisterChannel:
+		return fmt.Sprintf("lobby.%v.registerChannel", lobby_id)
+	case DeregisterChannel:
+		return fmt.Sprintf("lobby.%v.unregisterChannel", lobby_id)
+	case PayloadChannel:
+		return fmt.Sprintf("lobby.%v.payloadChannel", lobby_id)
+    case StateChannel:
+        return fmt.Sprintf("lobby.%v.stateChannel", lobby_id)
+	default:
+		return ""
+	}
+}
+
 type Lobby struct {
 	// game data
 	ID              string
@@ -20,9 +46,9 @@ type Lobby struct {
 	ColorsAvailable map[string]bool
 	Settings        internal.Settings
 	Players         map[string]*internal.Player
+	CurrentState    internal.CurrentState
 
 	handler      LobbyHandler
-	lobbyState   *internal.Lobby
 	lobbyRepo    db.LobbyRepo
 	lobbyManager *LobbyManager
 	logger       *slog.Logger
@@ -71,6 +97,7 @@ func (m *LobbyManager) NewLobby(settings internal.Settings, id ...string) string
 		Players:         l.Players,
 		Settings:        l.Settings,
 		ColorsAvailable: l.ColorsAvailable,
+		CurrentState:    internal.InLobby,
 	})
 
 	l.handler = NewLobbyHandler(m.redisClient, l, l.logger)
@@ -130,13 +157,14 @@ func (l *Lobby) Subscribe() {
 				return
 			}
 			switch msg.Channel {
-			case fmt.Sprintf("lobby.%v.registerChannel", l.ID):
+			case RegisterChannel.String(l.ID):
 				l.handler.RegisterPlayer(payload)
-			case fmt.Sprintf("lobby.%v.unregisterChannel", l.ID):
-                l.handler.DeregisterPlayer(payload)
-				// l.handleUnregisterSession(payload)
-			case fmt.Sprintf("lobby.%v.payloadChannel", l.ID):
-				l.handlePayload(payload)
+            case StateChannel.String(l.ID):
+                l.handler.ChangeState()
+			case DeregisterChannel.String(l.ID):
+				l.handler.DeregisterPlayer(payload)
+			case PayloadChannel.String(l.ID):
+				l.handler.DispatchAction(payload)
 			}
 
 		case err := <-l.errorChan:
@@ -150,177 +178,12 @@ func (l *Lobby) Subscribe() {
 			if err != nil {
 				return
 			}
+			if l.handler.EmptyLobby() {
+				return
+			}
 		}
 
 	}
-}
-
-func (l *Lobby) publishResponse(response WsResponse) error {
-	l.logger.Info("lobby.publishResponse",
-		slog.Group("sending response to players",
-			slog.String("lobby_id", l.ID)))
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	responseChanKey := fmt.Sprintf("lobby.%v.responseChannel", l.ID)
-
-	rb, err := response.MarshalBinary()
-	if err != nil {
-		l.logger.Error("wsClient.PublishPayloadToLobby",
-			slog.Group("failed to marshal payload",
-				slog.String("reason", err.Error())))
-		return err
-	}
-
-	err = l.redisClient.Publish(ctx, responseChanKey, rb).Err()
-	if err != nil {
-		l.logger.Error("lobby.publishResponse", slog.Group("error trying to publish", slog.String("lobby_id", l.ID)))
-		return err
-	}
-	return nil
-}
-
-func (l *Lobby) handleUnregisterSession(payload WsPayload) {
-	l.logger.Info("lobby.handleUnregisterSession",
-		slog.Group("Unregistering player connection",
-			slog.String("lobby_id", l.ID),
-			slog.String("user", payload.Username)))
-
-	if _, ok := l.Players[payload.Username]; ok {
-		delete(l.Players, payload.Username)
-		l.lobbyRepo.SetLobby(toLobbyState(l))
-		// instead of calling to delete ill just remove the
-		// the player from the the Player list and let the
-		// unregistered player data to expire.
-		// l.lobbyRepo.DeletePlayer(l.ID, payload.Username)
-	}
-
-}
-
-func (l *Lobby) handleReadyState() {
-	l.logger.Info("lobby.handleReadyState",
-		slog.Group("player is ready",
-			slog.String("lobby_id", l.ID)))
-
-	var response WsResponse
-
-	// allReady used to start the game
-	allReady := true
-	// for s := range l.Sessions {
-	// 	// if any player is not ready allReady is false
-	// 	if !s.IsReady {
-	// 		allReady = false
-	// 	}
-	// }
-	// once all players are ready start the game
-	if allReady {
-		l.logger.Info("lobby.Listen",
-			slog.Group("All players are ready game starting"))
-
-		response.Action = StartGameResponseEvent
-	}
-
-}
-
-func (l *Lobby) handlePayload(payload WsPayload) {
-	var response WsResponse
-
-	switch payload.Action {
-	case JoinPayloadEvent:
-		response.Action = JoinResponseEvent
-		response.Message = fmt.Sprintf("%v joined", payload.Username)
-		response.SkipSender = true
-		response.Sender = payload.Username
-		response.ConnectedUsers = l.getPlayerUsernames()
-		if err := l.publishResponse(response); err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			l.errorChan <- err
-		}
-
-	case LeavePayloadEvent:
-		response.Action = LeftResponseEvent
-		response.Message = fmt.Sprintf("%v left", payload.Username)
-		response.SkipSender = true
-		response.Sender = payload.Username
-		response.ConnectedUsers = l.getPlayerUsernames()
-		if err := l.publishResponse(response); err != nil {
-			l.errorChan <- err
-		}
-
-	case ChatPayloadEvent:
-		response.Action = NewMessageResponseEvent
-		response.Message = payload.Message
-		response.SkipSender = false
-		response.Sender = payload.Username
-		response.ConnectedUsers = l.getPlayerUsernames()
-		if err := l.publishResponse(response); err != nil {
-			l.errorChan <- err
-		}
-
-	case ChooseColorPayloadEvent:
-		senderState, err := l.lobbyRepo.GetPlayer(l.ID, payload.Username)
-		if err != nil {
-
-			l.errorChan <- fmt.Errorf("lobby.Subscribe err: ")
-		}
-		senderState.Color = payload.Message
-		l.lobbyRepo.SetPlayer(l.ID, senderState)
-		l.Players[payload.Username] = senderState
-		l.lobbyRepo.SetLobby(toLobbyState(l))
-
-		response.Action = ChooseColorResponseEvent
-		response.Sender = payload.Username
-		response.Message = payload.Message
-		response.ConnectedUsers = l.getPlayerUsernames()
-		response.SkipSender = false
-		if err := l.publishResponse(response); err != nil {
-			l.errorChan <- err
-		}
-
-	case SetReadyStatusPayloadEvent:
-		senderState, err := l.lobbyRepo.GetPlayer(l.ID, payload.Username)
-		if err != nil {
-			l.errorChan <- err
-		}
-		senderState.Ready = true
-		l.lobbyRepo.SetPlayer(l.ID, senderState)
-
-		response.Action = SetReadyStatusResponseEvent
-		response.Message = payload.Message
-		response.Sender = payload.Username
-		response.SkipSender = false
-		if err := l.publishResponse(response); err != nil {
-			l.errorChan <- err
-		}
-
-	}
-
-}
-
-func (l *Lobby) handleNoPlayers() bool {
-	if len(l.Players) == 0 {
-		l.logger.Info("lobby.handleNoPlayers",
-			slog.Group("triggering closing lobby",
-				slog.String("reason", "no players in lobby"),
-				slog.String("lobby_id", l.ID),
-			))
-		return true
-	}
-
-	return false
-
-}
-
-func (l *Lobby) getPlayerUsernames() []string {
-	var usernames []string
-	for u := range l.Players {
-		usernames = append(usernames, u)
-	}
-
-	sort.Strings(usernames)
-
-	return usernames
 }
 
 func (l *Lobby) HasPlayer(username string) bool {
@@ -336,5 +199,6 @@ func toLobbyState(l *Lobby) *internal.Lobby {
 		Players:         l.Players,
 		ColorsAvailable: l.ColorsAvailable,
 		Settings:        l.Settings,
+		CurrentState:    l.CurrentState,
 	}
 }

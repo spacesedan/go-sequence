@@ -3,6 +3,7 @@ package db
 import (
 	"encoding/json"
 	"log/slog"
+	"time"
 
 	goredis "github.com/go-redis/redis/v8"
 	"github.com/gomodule/redigo/redis"
@@ -18,7 +19,7 @@ type LobbyRepo interface {
 	SetPlayer(lobbyID string, player *internal.Player) error
 	DeletePlayer(lobby_id string, username string) error
 
-	Expire(lobbyID string, username string)
+	Expire(lobbyID string, username string, dur time.Duration)
 }
 
 // LobbyRepo responsible for interfacing with the data stored in the cache
@@ -159,6 +160,6 @@ func (l *lobbyRepo) DeletePlayer(lobby_id string, username string) error {
 
 }
 
-func (l *lobbyRepo) Expire(lobby_id string, u string) {
-	l.rj.Expire(playerKey(lobby_id, u))
+func (l *lobbyRepo) Expire(lobby_id string, u string, dur time.Duration) {
+	l.rj.Expire(playerKey(lobby_id, u), dur)
 }

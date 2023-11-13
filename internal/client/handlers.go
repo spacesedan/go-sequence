@@ -19,7 +19,7 @@ func (c *WsClient) handleJoin(r lobby.WsResponse) {
 		components.PlayerStatus(r.Message).Render(ctx, &b)
 		if err := c.sendResponse(b.String()); err != nil {
 			fmt.Println("[ACTION] join_lobby", err.Error())
-			return
+		c.errorChan <- err
 		}
 	}
 	b.Reset()
@@ -30,7 +30,7 @@ func (c *WsClient) handleJoin(r lobby.WsResponse) {
 	}
 	components.PlayerDetails(players).Render(ctx, &b)
 	if err := c.sendResponse(b.String()); err != nil {
-		return
+		c.errorChan <- err
 	}
 	b.Reset()
 }
@@ -59,8 +59,7 @@ func (c *WsClient) handleChatMessage(r lobby.WsResponse) {
 			Render(ctx, &b)
 	}
 	if err := c.sendResponse(b.String()); err != nil {
-		fmt.Println("[ACTION] new_chat_message", err.Error())
-		return
+        c.errorChan <- err
 	}
 
 	b.Reset()

@@ -12,6 +12,8 @@ htmx.onLoad(function(content) {
     const lobbyForm = document.querySelector<HTMLFormElement>("#join-lobby-form")
 
 
+    lobbyIdInput?.focus()
+
     // closeModal
     function closeModal() {
         // add the closing animation to the modal element
@@ -34,14 +36,12 @@ htmx.onLoad(function(content) {
 
         switch (true) {
             case !lobbyIdInput?.value:
-                console.log(1);
                 lobbyIdInput!.classList.remove("border-gray-300")
                 lobbyIdInput!.style.borderColor = 'red'
                 lobbyIdLabel!.innerText = "no lobby id"
                 lobbyIdInput!.innerText = ""
                 return
             case !lobbyIdInput?.value.match(lobbyIdRegex):
-                console.log(2);
                 lobbyIdInput!.classList.remove("border-gray-300")
                 lobbyIdInput!.style.borderColor = 'red'
                 lobbyIdLabel!.innerText = "invalid lobby id"
@@ -54,21 +54,6 @@ htmx.onLoad(function(content) {
                 closeModal()
                 return
         }
-
-        // if (lobbyIdInput?.value == "") {
-        //     return
-        // }
-        //
-        // if (!lobbyIdInput?.value.match(lobbyIdRegex)) {
-        //     lobbyIdInput!.classList.remove("border-gray-300")
-        //     lobbyIdInput!.style.borderColor = 'red'
-        //     lobbyIdLabel!.innerText = "invalid lobby id"
-        //     lobbyIdInput!.innerText = ""
-        //     return
-        // }
-
-
-
     })
 })
 

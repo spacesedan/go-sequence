@@ -62,7 +62,7 @@ const (
 )
 
 func NewGameService() GameService {
-	board, err := NewBoard(BoardCellsJSONPath)
+	board, err := NewBoard()
 	if err != nil {
 		panic(err)
 	}
@@ -186,10 +186,10 @@ func (g gameService) GetDiscardPile() DiscardPile {
 // BOARD LOGIC -------------------------------------------
 
 // NewBoard creates a new game board
-func NewBoard(fileName string) (Board, error) {
+func NewBoard() (Board, error) {
 	var board Board
 
-	cells, err := boardCellsFromFile(fileName)
+	cells, err := boardCellsFromFile(BoardCellsJSONPath)
 	if err != nil {
 		return Board{}, services.WrapErrorf(err, services.ErrorCodeNotFound, "services.NewBoard")
 	}

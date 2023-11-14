@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -11,7 +12,9 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/spacesedan/go-sequence/internal"
 	"github.com/spacesedan/go-sequence/internal/db"
+	"github.com/spacesedan/go-sequence/internal/game"
 	"github.com/spacesedan/go-sequence/internal/lobby"
+	"github.com/spacesedan/go-sequence/internal/views"
 )
 
 const (
@@ -44,6 +47,7 @@ type PublishChannel uint
 
 const (
 	UnknownChannel PublishChannel = iota
+	StateChannel
 	PayloadChannel
 	PingChannel
 	RegisterChannel
@@ -62,6 +66,8 @@ func (p PublishChannel) String() string {
 		return "unknown"
 	case PingChannel:
 		return "pingChannel"
+	case StateChannel:
+		return "stateChannel"
 	default:
 		return "unknown"
 	}
@@ -70,7 +76,7 @@ func (p PublishChannel) String() string {
 func NewWsClient(ws *websocket.Conn, r *redis.Client, logger *slog.Logger, username, lobbyId string) *WsClient {
 
 	// how should i get the redis client
-    // passed it to the redis client to the lobbyHandler.
+	// passed it to the redis client to the lobbyHandler.
 	return &WsClient{
 		Conn:     ws,
 		Username: username,
@@ -145,9 +151,10 @@ func (s *WsClient) SubscribeToLobby() {
 			slog.String("lobby_id", s.LobbyID),
 			slog.String("username", s.Username)))
 
-	p := fmt.Sprintf("lobby.%v.responseChannel", s.LobbyID)
+	responseChannel := fmt.Sprintf("lobby.%v.responseChannel", s.LobbyID)
+	stateChannel := fmt.Sprintf("lobby.%v.stateChannel", s.LobbyID)
 	ctx, cancel := context.WithCancel(context.Background())
-	sub := s.redisClient.Subscribe(ctx, p)
+	sub := s.redisClient.Subscribe(ctx, responseChannel, stateChannel)
 	ch := sub.Channel()
 	ticker := time.NewTicker(time.Minute)
 
@@ -173,16 +180,29 @@ func (s *WsClient) SubscribeToLobby() {
 			}
 
 			fmt.Printf("%#v\n", response)
+			switch msg.Channel {
+			case responseChannel:
+				switch response.Action {
+				case lobby.JoinResponseEvent:
+					s.handleJoin(response)
+				case lobby.NewMessageResponseEvent:
+					s.handleChatMessage(response)
+				case lobby.ChooseColorResponseEvent:
+					s.handleChooseColor(response)
+				case lobby.SetReadyStatusResponseEvent:
+					s.handlePlayerReady(response)
+				}
+			case stateChannel:
+				var b bytes.Buffer
 
-			switch response.Action {
-			case lobby.JoinResponseEvent:
-				s.handleJoin(response)
-			case lobby.NewMessageResponseEvent:
-				s.handleChatMessage(response)
-			case lobby.ChooseColorResponseEvent:
-				s.handleChooseColor(response)
-			case lobby.SetReadyStatusResponseEvent:
-				s.handlePlayerReady(response)
+				gameBoard, err := game.NewBoard()
+				if err != nil {
+					s.errorChan <- err
+				}
+
+				views.Game(createWebsocketConnectionString(s.LobbyID), gameBoard).Render(context.Background(), &b)
+				s.sendResponse(b.String())
+
 			}
 
 		case <-s.errorChan:

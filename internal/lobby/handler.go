@@ -62,7 +62,12 @@ func (h *lobbyHandler) RegisterPlayer(p WsPayload) {
 
 	}
 
+    if h.lobby.CurrentState == internal.InGame {
+        h.publish(StateChannel, internal.InGame)
+    }
+
 	h.lobby.Players[p.Username] = ps
+
 
 }
 
@@ -93,17 +98,22 @@ func (h *lobbyHandler) ChangeState() {
 }
 
 func (h *lobbyHandler) DispatchAction(p WsPayload) {
-	switch p.Action {
-	case JoinPayloadEvent:
-		h.JoinAction(p)
-	case LeavePayloadEvent:
-		h.LeaveAction(p)
-	case ChatPayloadEvent:
-		h.ChatAction(p)
-	case ChooseColorPayloadEvent:
-		h.ColorSelectionAction(p)
-	case SetReadyStatusPayloadEvent:
-		h.ReadyAction(p)
+	switch h.lobby.CurrentState {
+	case internal.InLobby:
+		switch p.Action {
+		case JoinPayloadEvent:
+			h.JoinAction(p)
+		case LeavePayloadEvent:
+			h.LeaveAction(p)
+		case ChatPayloadEvent:
+			h.ChatAction(p)
+		case ChooseColorPayloadEvent:
+			h.ColorSelectionAction(p)
+		case SetReadyStatusPayloadEvent:
+			h.ReadyAction(p)
+		}
+	case internal.InGame:
+	default:
 	}
 }
 
@@ -192,18 +202,17 @@ func (h *lobbyHandler) ReadyAction(p WsPayload) {
 		}
 	}
 
-	fmt.Printf("\n\n\nPlayers Ready: %v\nNumofplayers: %v\n\n", playersReady, h.lobby.Settings.NumOfPlayers)
 	if len(playersReady) == h.lobby.Settings.NumOfPlayers {
 		h.lobby.CurrentState = internal.InGame
+		h.svc.SetLobby(toLobbyState(h.lobby))
 		h.publish(StateChannel, internal.InGame)
 	}
-	h.svc.SetLobby(toLobbyState(h.lobby))
 
 	r.Action = SetReadyStatusResponseEvent
 	r.Message = p.Message
 	r.Sender = p.Username
 	r.SkipSender = false
-    r.ConnectedUsers = h.svc.GetPlayerNames()
+	r.ConnectedUsers = h.svc.GetPlayerNames()
 	if err := h.publishResponse(r); err != nil {
 		h.lobby.errorChan <- err
 	}
@@ -215,9 +224,9 @@ func (h *lobbyHandler) publish(c LobbyChannel, s internal.CurrentState) {
 	defer cancel()
 
 	err := h.rdb.Publish(ctx, c.String(h.lobby.ID), WsPayload{
-        Action: "change_state",
-        Message: s.String(),
-    })
+		Action:  "change_state",
+		Message: s.String(),
+	})
 	if err.Err() != nil {
 		h.lobby.errorChan <- err.Err()
 	}

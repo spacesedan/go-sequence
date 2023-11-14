@@ -19,7 +19,7 @@ const (
 	RegisterChannel
 	DeregisterChannel
 	PayloadChannel
-    StateChannel
+	StateChannel
 )
 
 func (c LobbyChannel) String(lobby_id string) string {
@@ -32,8 +32,8 @@ func (c LobbyChannel) String(lobby_id string) string {
 		return fmt.Sprintf("lobby.%v.unregisterChannel", lobby_id)
 	case PayloadChannel:
 		return fmt.Sprintf("lobby.%v.payloadChannel", lobby_id)
-    case StateChannel:
-        return fmt.Sprintf("lobby.%v.stateChannel", lobby_id)
+	case StateChannel:
+		return fmt.Sprintf("lobby.%v.stateChannel", lobby_id)
 	default:
 		return ""
 	}
@@ -83,6 +83,7 @@ func (m *LobbyManager) NewLobby(settings internal.Settings, id ...string) string
 		ID:              lobbyId,
 		Game:            game.NewGameService(),
 		Settings:        settings,
+		CurrentState:    internal.InLobby,
 		ColorsAvailable: colors,
 		Players:         make(map[string]*internal.Player),
 		lobbyManager:    m,
@@ -97,7 +98,7 @@ func (m *LobbyManager) NewLobby(settings internal.Settings, id ...string) string
 		Players:         l.Players,
 		Settings:        l.Settings,
 		ColorsAvailable: l.ColorsAvailable,
-		CurrentState:    internal.InLobby,
+		CurrentState:    l.CurrentState,
 	})
 
 	l.handler = NewLobbyHandler(m.redisClient, l, l.logger)
@@ -159,8 +160,8 @@ func (l *Lobby) Subscribe() {
 			switch msg.Channel {
 			case RegisterChannel.String(l.ID):
 				l.handler.RegisterPlayer(payload)
-            case StateChannel.String(l.ID):
-                l.handler.ChangeState()
+			case StateChannel.String(l.ID):
+				l.handler.ChangeState()
 			case DeregisterChannel.String(l.ID):
 				l.handler.DeregisterPlayer(payload)
 			case PayloadChannel.String(l.ID):

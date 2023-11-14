@@ -1,9 +1,36 @@
 package views
 
-templ Game(connectionString string) {
-	<main id="main_container" hx-swap-oob="innerHTML" class="min-h-screen px-12 pt-12 pb-24 font-mono" hx-ext="ws" ws-connect={ connectionString }>
-		<div class="bg-white h-[90vh] rounded-lg p-12">
-			<h1>THE GAME</h1>
-		</div>
+import "github.com/spacesedan/go-sequence/internal/game"
+import "fmt"
+
+templ Game(connectionString string, gameBoard game.Board) {
+	<main
+ 		id="main_container"
+ 		hx-swap-oob="innerHTML"
+ 		class="min-h-screen px-12 pt-12 pb-24 font-mono"
+ 		hx-ext="ws"
+ 		ws-connect={ connectionString }
+	>
+		<div class="bg-white min-h-[90vh] w-full rounded-lg p-5">
+            <div class="grid grid-cols-10 gap-3">
+            for i:=0; i < 10; i++ {
+                for j:=0; j<10; j++ {
+                    if i == 0 && j == 0 || i == 9 && j == 0 || i == 0 && j ==9 || i==9 && j==9 {
+                        @CardCornerItem(gameBoard[i][j])
+                    } else {
+                        @CardItem(gameBoard[i][j])
+                    }
+                }
+            }
+            </div>
+        </div>
 	</main>
+}
+
+templ CardItem(cell *game.BoardCell ) {
+	<img data-card_type={cell.Type} data-card_suit={cell.Suit} class="object-cover" src={ fmt.Sprintf("/static/svg/%v_%v.svg", cell.Type, cell.Suit) }/>
+}
+
+templ CardCornerItem(cell *game.BoardCell) {
+	<img class="object-cover" src="/static/svg/1J.svg"/>
 }

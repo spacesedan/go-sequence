@@ -192,10 +192,8 @@ func (s *WsClient) SubscribeToLobby() {
 				// var b bytes.Buffer
 				switch response.Message {
 				case "lobby":
-					time.Sleep(time.Second * 3)
-					s.sendResponse("poop")
+					time.Sleep(time.Millisecond * 1500)
                     s.handleJoin(response)
-
 				case "game":
 
 				}

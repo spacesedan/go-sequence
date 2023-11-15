@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/spacesedan/go-sequence/internal/lobby"
+	"github.com/spacesedan/go-sequence/internal/views"
 	"github.com/spacesedan/go-sequence/internal/views/components"
 )
 
@@ -15,24 +16,29 @@ func (c *WsClient) handleJoin(r lobby.WsResponse) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if r.Sender != c.Username {
-		components.PlayerStatus(r.Message).Render(ctx, &b)
-		if err := c.sendResponse(b.String()); err != nil {
-			fmt.Println("[ACTION] join_lobby", err.Error())
-		c.errorChan <- err
-		}
-	}
-	b.Reset()
+	views.LobbyView(c.Username, c.LobbyID).Render(ctx, &b)
+	c.sendResponse(b.String())
 
-	players, err := c.clientRepo.GetMPlayers(c.LobbyID, r.ConnectedUsers)
-	if err != nil {
-		c.errorChan <- err
-	}
-	components.PlayerDetails(players).Render(ctx, &b)
-	if err := c.sendResponse(b.String()); err != nil {
-		c.errorChan <- err
-	}
-	b.Reset()
+    b.Reset()
+
+	// if r.Sender != c.Username {
+	// 	components.PlayerStatus(r.Message).Render(ctx, &b)
+	// 	if err := c.sendResponse(b.String()); err != nil {
+	// 		fmt.Println("[ACTION] join_lobby", err.Error())
+	// 	c.errorChan <- err
+	// 	}
+	// }
+	// b.Reset()
+	//
+	// players, err := c.clientRepo.GetMPlayers(c.LobbyID, r.ConnectedUsers)
+	// if err != nil {
+	// 	c.errorChan <- err
+	// }
+	// components.PlayerDetails(players).Render(ctx, &b)
+	// if err := c.sendResponse(b.String()); err != nil {
+	// 	c.errorChan <- err
+	// }
+	// b.Reset()
 }
 
 // handleChatMessage handles incoming chat messages and send the correct
@@ -59,7 +65,7 @@ func (c *WsClient) handleChatMessage(r lobby.WsResponse) {
 			Render(ctx, &b)
 	}
 	if err := c.sendResponse(b.String()); err != nil {
-        c.errorChan <- err
+		c.errorChan <- err
 	}
 
 	b.Reset()
@@ -70,7 +76,6 @@ func (c *WsClient) handleChooseColor(r lobby.WsResponse) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
 
 	sender, err := c.clientRepo.GetPlayer(c.LobbyID, r.Sender)
 	if err != nil {
@@ -97,10 +102,10 @@ func (c *WsClient) handlePlayerReady(r lobby.WsResponse) {
 	defer cancel()
 
 	if r.Sender == c.Username {
-        ps, err := c.clientRepo.GetPlayer(c.LobbyID, c.Username)
-        if err != nil {
-            c.errorChan <- err
-        }
+		ps, err := c.clientRepo.GetPlayer(c.LobbyID, c.Username)
+		if err != nil {
+			c.errorChan <- err
+		}
 		if ps.Color == "" {
 			title := "Missing player color"
 			content := "can't ready up without selecting a color"

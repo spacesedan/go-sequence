@@ -70,7 +70,7 @@ func (v ViewHandler) handleCreateLobbyPage(w http.ResponseWriter, r *http.Reques
 }
 
 func (v ViewHandler) handleLobbyPage(w http.ResponseWriter, r *http.Request) {
-	username, err := getUsernameFromCookie(r)
+	_, err := getUsernameFromCookie(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -86,9 +86,13 @@ func (v ViewHandler) handleLobbyPage(w http.ResponseWriter, r *http.Request) {
 
 	connectionUrl := createWebsocketConnectionString(lobbyID)
 
-	err = views.
-		MainLayoutWithWs(fmt.Sprintf("Lobby %s", lobbyID), views.LobbyPage(connectionUrl, lobbyID, username)).
+	// err = views.
+	// 	MainLayoutWithWs(fmt.Sprintf("Lobby %s", lobbyID), views.LobbyPage(connectionUrl, lobbyID, username)).
+	// 	Render(context.Background(), w)
+
+	err = views.MainLayoutWithWs(fmt.Sprintf("Lobby %s", lobbyID), views.GamePage(connectionUrl)).
 		Render(context.Background(), w)
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

@@ -47,6 +47,7 @@ func (h *lobbyHandler) RegisterPlayer(p WsPayload) {
 	h.logger.Info("lobbyHandler.handleRegisterPlayer",
 		fmt.Sprintf("player: %s joined lobby: %s", p.Username, h.lobby.ID), "OK")
 
+	// check to see if the player is reconnecting or is a new player entirely
 	var ps *internal.Player
 	ps, err := h.svc.GetPlayer(p.Username)
 	if ps == nil {
@@ -62,12 +63,9 @@ func (h *lobbyHandler) RegisterPlayer(p WsPayload) {
 
 	}
 
-    if h.lobby.CurrentState == internal.InGame {
-        h.publish(StateChannel, internal.InGame)
-    }
+	h.publish(StateChannel, h.lobby.CurrentState)
 
 	h.lobby.Players[p.Username] = ps
-
 
 }
 
@@ -125,9 +123,11 @@ func (h *lobbyHandler) JoinAction(p WsPayload) {
 	r.SkipSender = true
 	r.Sender = p.Username
 	r.ConnectedUsers = h.svc.GetPlayerNames()
-	if err := h.publishResponse(r); err != nil {
-		h.lobby.errorChan <- err
-	}
+
+    h.publish(StateChannel, h.lobby.CurrentState)
+	// if err := h.publish(StateChannel, h.lobby.CurrentState); err != nil {
+	// 	h.lobby.errorChan <- err
+	// }
 }
 
 func (h *lobbyHandler) LeaveAction(p WsPayload) {

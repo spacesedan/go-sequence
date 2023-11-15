@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -12,9 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/spacesedan/go-sequence/internal"
 	"github.com/spacesedan/go-sequence/internal/db"
-	"github.com/spacesedan/go-sequence/internal/game"
 	"github.com/spacesedan/go-sequence/internal/lobby"
-	"github.com/spacesedan/go-sequence/internal/views"
 )
 
 const (
@@ -179,12 +176,11 @@ func (s *WsClient) SubscribeToLobby() {
 				return
 			}
 
-			fmt.Printf("%#v\n", response)
 			switch msg.Channel {
 			case responseChannel:
 				switch response.Action {
-				case lobby.JoinResponseEvent:
-					s.handleJoin(response)
+				// case lobby.JoinResponseEvent:
+				// 	s.handleJoin(response)
 				case lobby.NewMessageResponseEvent:
 					s.handleChatMessage(response)
 				case lobby.ChooseColorResponseEvent:
@@ -193,15 +189,16 @@ func (s *WsClient) SubscribeToLobby() {
 					s.handlePlayerReady(response)
 				}
 			case stateChannel:
-				var b bytes.Buffer
+				// var b bytes.Buffer
+				switch response.Message {
+				case "lobby":
+					time.Sleep(time.Second * 3)
+					s.sendResponse("poop")
+                    s.handleJoin(response)
 
-				gameBoard, err := game.NewBoard()
-				if err != nil {
-					s.errorChan <- err
+				case "game":
+
 				}
-
-				views.Game(createWebsocketConnectionString(s.LobbyID), gameBoard).Render(context.Background(), &b)
-				s.sendResponse(b.String())
 
 			}
 

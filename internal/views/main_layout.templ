@@ -31,7 +31,7 @@ templ MainLayoutWithWs( title string, main templ.Component) {
 			<link rel="stylesheet" href="/bundle/css/main_layout.css"/>
 			<title>{ title }</title>
 		</head>
-		<body class="bg-blue-700">
+		<body>
 			@navbar()
 			{! main }
 		</body>
@@ -39,7 +39,7 @@ templ MainLayoutWithWs( title string, main templ.Component) {
 }
 
 templ navbar () {
-	<nav id="nav_bar" class="p-12  py-3  font-mono text-3xl text-white">
+	<nav id="nav_bar" class="p-12  py-3  font-mono bg-blue-700 text-3xl text-white">
 		<a href="/">Home</a>
 	</nav>
 }

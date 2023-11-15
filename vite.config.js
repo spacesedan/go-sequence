@@ -13,7 +13,7 @@ export default defineConfig({
     build: {
         // required to create a manifest file
         manifest: true,
-        emptyOutDir: true,
+        emptyOutDir: false,
         cssMinify: 'lightningcss',
         minify: true,
         rollupOptions: {

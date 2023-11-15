@@ -1,6 +1,8 @@
 # Sequence
 
-The game of sequence but in a browser
+The game of sequence but on the web
+
+
 
 
 ## Parts of the game
@@ -26,11 +28,7 @@ The game of sequence but in a browser
 
 
 ## Lobby implementation
-- users can create lobbys, when a lobby is created a unique 4 characted code is generated that
-other users can use to join the lobby
 
-- inside of the lobby users can chat with each other
-    - currently working on a way to let users choose their chip color
 
 ### What i have right now
 

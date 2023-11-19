@@ -49,6 +49,10 @@ func (h *lobbyHandler) RegisterPlayer(p WsPayload) {
 
 	// check to see if the player is reconnecting or is a new player entirely
 	var ps *internal.Player
+	var r WsResponse
+
+    time.Sleep(3 * time.Second)
+
 	ps, err := h.svc.GetPlayer(p.Username)
 	if ps == nil {
 		ps = &internal.Player{
@@ -63,9 +67,27 @@ func (h *lobbyHandler) RegisterPlayer(p WsPayload) {
 
 	}
 
-	h.publish(StateChannel, h.lobby.CurrentState)
-
 	h.lobby.Players[p.Username] = ps
+    h.svc.SetLobby(toLobbyState(h.lobby))
+
+	// get the current state of the lobby
+	cs := h.svc.GetCurrentState()
+
+	// handle the register payload with the current state
+	r.Sender = p.Username
+	r.ConnectedUsers = h.svc.GetPlayerNames()
+
+	switch cs {
+	case internal.InLobby:
+		r.Action = JoinLobbyResponseEvent
+		r.Message = fmt.Sprintf("%s joined", p.Username)
+	case internal.InGame:
+		r.Action = JoinGameResponseEvent
+		r.Message = fmt.Sprintf("%s reconnected", p.Username)
+	}
+
+	// send the response to the player
+	h.publishResponse(r)
 
 }
 
@@ -77,12 +99,12 @@ func (h *lobbyHandler) DeregisterPlayer(p WsPayload) {
 
 	if _, ok := h.lobby.Players[p.Username]; ok {
 		delete(h.lobby.Players, p.Username)
+        // handle this in the lobby service
+        // instead of calling to delete ill just remove the
+        // the player from the the Player list and let the
+        // unregistered player data to expire.
+        // l.lobbyRepo.DeletePlayer(l.ID, payload.Username)
 		h.svc.SetExpiration(p.Username, time.Duration(30*time.Second))
-		// handle this in the lobby service
-		// instead of calling to delete ill just remove the
-		// the player from the the Player list and let the
-		// unregistered player data to expire.
-		// l.lobbyRepo.DeletePlayer(l.ID, payload.Username)
 	}
 
 }
@@ -99,8 +121,8 @@ func (h *lobbyHandler) DispatchAction(p WsPayload) {
 	switch h.lobby.CurrentState {
 	case internal.InLobby:
 		switch p.Action {
-		case JoinPayloadEvent:
-			h.JoinAction(p)
+		// case JoinLobbyPayloadEvent:
+		// 	h.JoinAction(p)
 		case LeavePayloadEvent:
 			h.LeaveAction(p)
 		case ChatPayloadEvent:
@@ -111,20 +133,19 @@ func (h *lobbyHandler) DispatchAction(p WsPayload) {
 			h.ReadyAction(p)
 		}
 	case internal.InGame:
-	default:
 	}
 }
 
 func (h *lobbyHandler) JoinAction(p WsPayload) {
 	var r WsResponse
 
-	r.Action = JoinResponseEvent
+	r.Action = JoinLobbyResponseEvent
 	r.Message = fmt.Sprintf("%v joined", p.Username)
 	r.SkipSender = true
 	r.Sender = p.Username
 	r.ConnectedUsers = h.svc.GetPlayerNames()
 
-    h.publish(StateChannel, h.lobby.CurrentState)
+	h.publish(StateChannel, h.lobby.CurrentState)
 	// if err := h.publish(StateChannel, h.lobby.CurrentState); err != nil {
 	// 	h.lobby.errorChan <- err
 	// }

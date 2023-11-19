@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spacesedan/go-sequence/internal/lobby"
 	"github.com/spacesedan/go-sequence/internal/views"
@@ -21,29 +22,35 @@ func (c *WsClient) handleJoin(r lobby.WsResponse) {
 
     b.Reset()
 
-	// if r.Sender != c.Username {
-	// 	components.PlayerStatus(r.Message).Render(ctx, &b)
-	// 	if err := c.sendResponse(b.String()); err != nil {
-	// 		fmt.Println("[ACTION] join_lobby", err.Error())
-	// 	c.errorChan <- err
-	// 	}
-	// }
-	// b.Reset()
-	//
-	// players, err := c.clientRepo.GetMPlayers(c.LobbyID, r.ConnectedUsers)
-	// if err != nil {
-	// 	c.errorChan <- err
-	// }
-	// components.PlayerDetails(players).Render(ctx, &b)
-	// if err := c.sendResponse(b.String()); err != nil {
-	// 	c.errorChan <- err
-	// }
-	// b.Reset()
+	if r.Sender != c.Username {
+		components.PlayerStatus(r.Message).Render(ctx, &b)
+		if err := c.sendResponse(b.String()); err != nil {
+			fmt.Println("[ACTION] join_lobby", err.Error())
+		c.errorChan <- err
+		}
+	}
+	b.Reset()
+
+	players, err := c.clientRepo.GetMPlayers(c.LobbyID, r.ConnectedUsers)
+	if err != nil {
+		c.errorChan <- err
+	}
+
+	components.PlayerDetails(players).Render(ctx, &b)
+    fmt.Printf("\n\n%v\n\n", b.String())
+	if err := c.sendResponse(b.String()); err != nil {
+		c.errorChan <- err
+	}
+	b.Reset()
 }
 
 // handleChatMessage handles incoming chat messages and send the correct
 // component client based on the sender of the original message
 func (c *WsClient) handleChatMessage(r lobby.WsResponse) {
+    if strings.TrimSpace(r.Message) == "" {
+        return
+    }
+
 	var b bytes.Buffer
 
 	ctx, cancel := context.WithCancel(context.Background())

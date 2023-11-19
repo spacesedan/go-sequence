@@ -130,6 +130,8 @@ func (s *WsClient) ReadPump() {
 			return
 		}
 
+        payload.Username = s.Username
+
 		if err := s.publishToLobby(PayloadChannel, payload); err != nil {
 			s.logger.Error("wsClient.ReadPump",
 				slog.Group("error publishing to lobby",
@@ -149,9 +151,8 @@ func (s *WsClient) SubscribeToLobby() {
 			slog.String("username", s.Username)))
 
 	responseChannel := fmt.Sprintf("lobby.%v.responseChannel", s.LobbyID)
-	stateChannel := fmt.Sprintf("lobby.%v.stateChannel", s.LobbyID)
 	ctx, cancel := context.WithCancel(context.Background())
-	sub := s.redisClient.Subscribe(ctx, responseChannel, stateChannel)
+	sub := s.redisClient.Subscribe(ctx, responseChannel)
 	ch := sub.Channel()
 	ticker := time.NewTicker(time.Minute)
 
@@ -179,8 +180,8 @@ func (s *WsClient) SubscribeToLobby() {
 			switch msg.Channel {
 			case responseChannel:
 				switch response.Action {
-				// case lobby.JoinResponseEvent:
-				// 	s.handleJoin(response)
+				case lobby.JoinLobbyPayloadEvent:
+					s.handleJoin(response)
 				case lobby.NewMessageResponseEvent:
 					s.handleChatMessage(response)
 				case lobby.ChooseColorResponseEvent:
@@ -188,16 +189,6 @@ func (s *WsClient) SubscribeToLobby() {
 				case lobby.SetReadyStatusResponseEvent:
 					s.handlePlayerReady(response)
 				}
-			case stateChannel:
-				// var b bytes.Buffer
-				switch response.Message {
-				case "lobby":
-					time.Sleep(time.Millisecond * 1500)
-                    s.handleJoin(response)
-				case "game":
-
-				}
-
 			}
 
 		case <-s.errorChan:

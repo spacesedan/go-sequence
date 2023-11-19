@@ -21,6 +21,7 @@ type LobbyService interface {
 	SetExpiration(string, time.Duration)
 
 	GetPlayerNames() []string
+    GetCurrentState() internal.CurrentState
 }
 
 type lobbyService struct {
@@ -82,6 +83,10 @@ func (s *lobbyService) GetPlayerNames() []string {
 		playerNames = append(playerNames, p)
 	}
 	return playerNames
+}
+
+func (s lobbyService) GetCurrentState() internal.CurrentState {
+    return s.lobby.CurrentState
 }
 
 func (s *lobbyService) SetExpiration(username string, dur time.Duration) {

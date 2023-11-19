@@ -5,7 +5,7 @@ type ResponseEvent string
 
 const (
 	UnknownPayloadEvent        PayloadEvent = "unknown"
-	JoinPayloadEvent                        = "join_lobby"
+	JoinLobbyPayloadEvent                   = "join_lobby"
 	LeavePayloadEvent                       = "left_lobby"
 	ChatPayloadEvent                        = "chat_message"
 	ChooseColorPayloadEvent                 = "choose_color"
@@ -14,7 +14,8 @@ const (
 
 const (
 	UnknownResponseEvent        ResponseEvent = "unknown"
-	JoinResponseEvent                         = "join_lobby"
+	JoinLobbyResponseEvent                    = "join_lobby"
+	JoinGameResponseEvent                     = "join_game"
 	LeftResponseEvent                         = "left"
 	NewMessageResponseEvent                   = "new_chat_message"
 	ChooseColorResponseEvent                  = "choose_color"

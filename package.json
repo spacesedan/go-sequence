@@ -3,7 +3,8 @@
     "dev": "vite --port 8000",
     "build:watch": "tsc && vite build --watch",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "watch": "make watch && make watch-tw"
   },
   "devDependencies": {
     "lightningcss": "^1.22.0",

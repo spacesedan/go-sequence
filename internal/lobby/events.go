@@ -6,6 +6,7 @@ type ResponseEvent string
 const (
 	UnknownPayloadEvent        PayloadEvent = "unknown"
 	JoinLobbyPayloadEvent                   = "join_lobby"
+	JoinGamePayloadEvent                    = "join_game"
 	LeavePayloadEvent                       = "left_lobby"
 	ChatPayloadEvent                        = "chat_message"
 	ChooseColorPayloadEvent                 = "choose_color"

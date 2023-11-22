@@ -1,0 +1,12 @@
+package components
+
+import "github.com/spacesedan/go-sequence/internal/game"
+import "fmt"
+
+templ CardItem(cell *game.BoardCell ) {
+	<img data-card_type={cell.Type} data-card_suit={cell.Suit} class="object-cover" src={ fmt.Sprintf("/static/svg/%v_%v.svg", cell.Type, cell.Suit) }/>
+}
+
+templ CardCornerItem(cell *game.BoardCell) {
+	<img class="object-cover" src="/static/svg/1J.svg"/>
+}

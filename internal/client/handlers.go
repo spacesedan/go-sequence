@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/spacesedan/go-sequence/internal/game"
 	"github.com/spacesedan/go-sequence/internal/lobby"
 	"github.com/spacesedan/go-sequence/internal/views"
 	"github.com/spacesedan/go-sequence/internal/views/components"
 )
 
-func (c *WsClient) handleJoin(r lobby.WsResponse) {
+func (c *WsClient) handleJoinLobby(r lobby.WsResponse) {
 	var b bytes.Buffer
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -20,13 +21,13 @@ func (c *WsClient) handleJoin(r lobby.WsResponse) {
 	views.LobbyView(c.Username, c.LobbyID).Render(ctx, &b)
 	c.sendResponse(b.String())
 
-    b.Reset()
+	b.Reset()
 
 	if r.Sender != c.Username {
 		components.PlayerStatus(r.Message).Render(ctx, &b)
 		if err := c.sendResponse(b.String()); err != nil {
 			fmt.Println("[ACTION] join_lobby", err.Error())
-		c.errorChan <- err
+			c.errorChan <- err
 		}
 	}
 	b.Reset()
@@ -37,19 +38,40 @@ func (c *WsClient) handleJoin(r lobby.WsResponse) {
 	}
 
 	components.PlayerDetails(players).Render(ctx, &b)
-    fmt.Printf("\n\n%v\n\n", b.String())
+	fmt.Printf("\n\n%v\n\n", b.String())
 	if err := c.sendResponse(b.String()); err != nil {
 		c.errorChan <- err
 	}
 	b.Reset()
 }
 
+func (c *WsClient) handleJoinGame(r lobby.WsResponse) {
+	var b bytes.Buffer
+
+    ps, err  := c.clientRepo.GetPlayer(c.LobbyID, c.Username)
+    if err != nil {
+        c.errorChan <- err
+    }
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+    gb, err := game.NewBoard()
+    if err != nil {
+        c.errorChan <- err
+    }
+	views.GameView(gb, ps.Color).Render(ctx, &b)
+    c.sendResponse(b.String())
+
+    b.Reset()
+}
+
 // handleChatMessage handles incoming chat messages and send the correct
 // component client based on the sender of the original message
 func (c *WsClient) handleChatMessage(r lobby.WsResponse) {
-    if strings.TrimSpace(r.Message) == "" {
-        return
-    }
+	if strings.TrimSpace(r.Message) == "" {
+		return
+	}
 
 	var b bytes.Buffer
 

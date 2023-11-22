@@ -226,16 +226,14 @@ func (h *lobbyHandler) ReadyAction(p WsPayload) {
 	if len(playersReady) == h.lobby.Settings.NumOfPlayers {
 		h.lobby.CurrentState = internal.InGame
 		h.svc.SetLobby(toLobbyState(h.lobby))
-		h.publish(StateChannel, internal.InGame)
-	}
 
-	r.Action = SetReadyStatusResponseEvent
-	r.Message = p.Message
-	r.Sender = p.Username
-	r.SkipSender = false
-	r.ConnectedUsers = h.svc.GetPlayerNames()
-	if err := h.publishResponse(r); err != nil {
-		h.lobby.errorChan <- err
+        r.Action = JoinGameResponseEvent
+        r.SkipSender = false
+        r.ConnectedUsers = h.svc.GetPlayerNames()
+        if err := h.publishResponse(r); err != nil {
+            h.lobby.errorChan <- err
+        }
+
 	}
 
 }

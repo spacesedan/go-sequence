@@ -130,7 +130,7 @@ func (s *WsClient) ReadPump() {
 			return
 		}
 
-        payload.Username = s.Username
+		payload.Username = s.Username
 
 		if err := s.publishToLobby(PayloadChannel, payload); err != nil {
 			s.logger.Error("wsClient.ReadPump",
@@ -181,7 +181,9 @@ func (s *WsClient) SubscribeToLobby() {
 			case responseChannel:
 				switch response.Action {
 				case lobby.JoinLobbyPayloadEvent:
-					s.handleJoin(response)
+					s.handleJoinLobby(response)
+				case lobby.JoinGamePayloadEvent:
+					s.handleJoinGame(response)
 				case lobby.NewMessageResponseEvent:
 					s.handleChatMessage(response)
 				case lobby.ChooseColorResponseEvent:

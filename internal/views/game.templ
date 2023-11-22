@@ -1,36 +1,103 @@
 package views
 
+import "github.com/spacesedan/go-sequence/internal/views/components"
 import "github.com/spacesedan/go-sequence/internal/game"
 import "fmt"
 
-templ Game(connectionString string, gameBoard game.Board) {
-	<main
- 		id="main_container"
- 		hx-swap-oob="innerHTML"
- 		class="min-h-screen px-12 pt-12 pb-24 font-mono"
- 		hx-ext="ws"
- 		ws-connect={ connectionString }
-	>
-		<div class="bg-white min-h-[90vh] w-full rounded-lg p-5">
-            <div class="grid grid-cols-10 gap-3">
-            for i:=0; i < 10; i++ {
-                for j:=0; j<10; j++ {
-                    if i == 0 && j == 0 || i == 9 && j == 0 || i == 0 && j ==9 || i==9 && j==9 {
-                        @CardCornerItem(gameBoard[i][j])
-                    } else {
-                        @CardItem(gameBoard[i][j])
-                    }
-                }
-            }
-            </div>
-        </div>
+
+templ GamePage(connectionString string) {
+	<main class="min-h-screen font-mono bg-blue-700" hx-ext="ws" ws-connect={ connectionString }>
+		<div id="game_container" class="min-h-screen h-full w-full flex-col bg-blue-700">
+			<div
+ 				class="w-1/3 min-h-[200px] p-3 bg-white mx-auto flex flex-col items-center rounded-md shadow-black shadow-md"
+			>
+				{! components.Spinner() }
+				<h4 class="text-3xl mt-5">connecting</h4>
+			</div>
+		</div>
 	</main>
+	<script src="/bundle/js/lobby.js"></script>
 }
 
-templ CardItem(cell *game.BoardCell ) {
-	<img data-card_type={cell.Type} data-card_suit={cell.Suit} class="object-cover" src={ fmt.Sprintf("/static/svg/%v_%v.svg", cell.Type, cell.Suit) }/>
+templ LobbyView(username, lobbyId string) {
+	<div id="game_container" class="bg-blue-700" hx-swap-oob="outerHTML">
+		<div id="username" data-username={ username }></div>
+		<div id="lobby-id" data-lobby-id={ lobbyId }></div>
+		<div class="grid grid-rows-lobby_grid grid-cols-5 gap-3 h-[75vh] rounded-md">
+			<!-- Header row  -->
+			<div class="col-span-full row-span-1 bg-white flex items-center rounded-md p-5">
+				<h1 class="text-2xl">Lobby id: { lobbyId }</h1>
+			</div>
+			<!-- Player details -->
+			<div class="row-start-2 row-end-3 col-span-3 p-3 rounded-md flex flex-col bg-white">
+				<!-- Players -->
+				<div class="mb-5">
+					<h3 class="text-xl font-bold">Players: </h3>
+					<div id="player_details" class="flex flex-col gap-y-3"></div>
+				</div>
+				<!-- Color Selection -->
+				<div class="mb-auto">
+					<h3 class="text-xl font-bold">Pick your color </h3>
+					<div class="flex gap-5 justify-center bg-gray-200 rounded-md py-3">
+						{! components.PlayerColorComponent("green") }
+						{! components.PlayerColorComponent("blue") }
+						{! components.PlayerColorComponent("red") }
+					</div>
+				</div>
+				<!-- Ready Button  -->
+				<div class="flex justify-center">
+					<button
+ 						ws-send
+ 						id="player_ready"
+ 						class="bg-gray-200 hover:bg-green-500 text-5xl font-black px-3 py-2 rounded-md"
+					>ready</button>
+				</div>
+			</div>
+			<!-- Player chat-->
+			<div class="row-start-2 row-end-3 col-span-2 bg-white rounded-md p-3">
+				<div class="flex flex-col h-full shadow-md">
+					<!-- Chat messages  -->
+					<div class="bg-gray-100 h-full rounded-t-md">
+						<div id="ws-events"></div>
+					</div>
+					<!-- Chat input  -->
+					<div class="flex flex-grow">
+						<textarea
+ 							ws-send
+ 							hx-trigger="keydown[!shiftKey&amp;&amp;key==&#39;Enter&#39;]"
+ 							form="chat-form"
+ 							rows="3"
+ 							class="w-full max-w-full  bg-gray-200 px-1.5 py-0.5 rounded-b-md resize-none"
+ 							id="chat-input"
+ 							name="message"
+ 							type="text"
+						></textarea>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
 }
 
-templ CardCornerItem(cell *game.BoardCell) {
-	<img class="object-cover" src="/static/svg/1J.svg"/>
+func toPlayerColor(c string) string {
+	return "bg-" + c + "-500"
+}
+
+templ GameView(gameBoard game.Board, playerColor string) {
+	<div id="game_container" class={ "p-12",  fmt.Sprintf("bg-%s-500", playerColor) } hx-swap-oob="outerHTML">
+		<!-- Game Board -->
+		<div class="bg-white min-h-[90vh] w-full rounded-lg p-5">
+			<div class="grid grid-cols-10 gap-3">
+				for i:=0; i < 10; i++ {
+					for j:=0; j<10; j++ {
+						if i == 0 && j == 0 || i == 9 && j == 0 || i == 0 && j ==9 || i==9 && j==9 {
+							{! components.CardCornerItem(gameBoard[i][j]) }
+						} else {
+							{! components.CardItem(gameBoard[i][j]) }
+						}
+					}
+				}
+			</div>
+		</div>
+	</div>
 }
